@@ -96,7 +96,8 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True):
             A, b, E, e = pl1.convertProblemToLp(pbComb, convertSurfaces = False)
             C = identity(A.shape[1]) * 0.00001
             c = pl1.slackSelectionMatrix(pbComb)
-            res = qp.quadprog_solve_qp(C, c,A,b,E,e)
+            # res = qp.quadprog_solve_qp(C, c,A,b,E,e)
+            res = qp.solve_lp_gurobi(c,A,b,E,e)
             if res.success:
                 res = res.x
                 if pl1.isSparsityFixed(pbComb, res):       
