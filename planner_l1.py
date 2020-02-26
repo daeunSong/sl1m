@@ -8,7 +8,7 @@ from sl1m.problem_definition import *
 #### constraint specification ####  
 
 DEFAULT_NUM_VARS = 4
-SLACK_SCALE = 10.
+SLACK_SCALE = 1.
 
 #extra variables when multiple surface: a0, variable for inequality, a1 slack for equality constraint, then a2 = |a1|
 #so vars are x, y, z, zcom, a0, a1

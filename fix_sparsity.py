@@ -5,7 +5,7 @@ from sl1m.constants_and_tools import *
 from sl1m import planner_l1 as pl1
 from sl1m import planner    as pl
 
-from . import qp
+import qp
 
 
 # try to import mixed integer solver
@@ -42,9 +42,9 @@ def solve(pb,surfaces, draw_scene = None, plot = True):
         return 3, 3, 3
     t3 = clock()
     
-    print("time to set up problem" , timMs(t1,t2))
-    print("time to solve problem"  , timMs(t2,t3))
-    print("total time"             , timMs(t1,t3))
+    print "time to set up problem" , timMs(t1,t2)
+    print "time to solve problem"  , timMs(t2,t3)
+    print "total time"             , timMs(t1,t3)
     
     coms, footpos, allfeetpos = pl.retrieve_points_from_res(pb, res)
     
@@ -53,7 +53,8 @@ def solve(pb,surfaces, draw_scene = None, plot = True):
         ax = draw_scene(surfaces)
         pl.plotQPRes(pb, res, ax=ax)
     
-    return pb, coms, footpos, allfeetpos, res
+    return pb, res, timMs(t1,t3)
+    # return pb, coms, footpos, allfeetpos, res
 
 
 ### Calls the sl1m solver. Brute-forcedly tries to solve non fixed sparsity by handling the combinatorial.
@@ -64,22 +65,18 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True):
     c = pl1.slackSelectionMatrix(pb)
         
     t1 = clock()
-    res = qp.quadprog_solve_qp(C, c,A,b,E,e).x
+    res = qp.quadprog_solve_qp(C, c,A,b,E,e)
     # ~ res = qp.solve_lp_gurobi(c,A,b,E,e).x
     # ~ res = qp.solve_lp_glpk(c,A,b,E,e).x
     t2 = clock()
+    
+    if res.success:
+        res = res.x
+    else:
+        print ("CASE4: fail to make the first guess")
+        return 4,4,4
+    
     print("time to solve lp ", timMs(t1,t2))
-    # ~ print ("res ", res)
-    # ~ res = res.x
-    
-    ok = pl1.isSparsityFixed(pb, res)
-    
-    plot = plot and draw_scene is not None 
-    # ~ if ok and plot:
-    if plot:
-        ax = draw_scene(surfaces)
-        pl1.plotQPRes(pb, res, ax=ax)
-        # ~ return
         
     ok = pl1.isSparsityFixed(pb, res)
     solutionIndices = None
@@ -92,16 +89,14 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True):
         t3 = clock()
         
         if pbs == 1:
-            print ("CASE1: too big combinatorial")
+            print "CASE1: too big combinatorial"
             return 1, 1, 1
         
         for (pbComb, comb, indices) in pbs:
             A, b, E, e = pl1.convertProblemToLp(pbComb, convertSurfaces = False)
             C = identity(A.shape[1]) * 0.00001
             c = pl1.slackSelectionMatrix(pbComb)
-            
-            # ~ res = qp.quadprog_solve_qp(C, c,A,b,E,e)    ######
-            res = qp.solve_lp_gurobi(c,A,b,E,e).x
+            res = qp.quadprog_solve_qp(C, c,A,b,E,e)
             if res.success:
                 res = res.x
                 if pl1.isSparsityFixed(pbComb, res):       
@@ -115,12 +110,12 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True):
                         pl1.plotQPRes(pb, res, ax=ax)
                     break
             else:
-                print("unfeasible problem")
+                print "unfeasible problem"
                 pass
             
         t4 = clock()      
         
-        print("time to solve combinatorial ", timMs(t3,t4))
+        print "time to solve combinatorial ", timMs(t3,t4)
     
     if ok:
         surfacesret, indices = pl1.bestSelectedSurfaces(pb, res)        
@@ -132,7 +127,7 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True):
         
         return solve (pb, surfaces, draw_scene, plot)  
     
-    print ("CASE2: combinatorials all sparsity not fixed")
+    print "CASE2: combinatorials all sparsity not fixed"
     return 2, 2, 2   
         
         # return solve(pb,surfaces, draw_scene = draw_scene, plot = True )  
@@ -145,7 +140,7 @@ def tovals(variables):
 
 def solveMIP(pb, surfaces, MIP = True, draw_scene = None, plot = True):  
     if not MIP_OK:
-        print("Mixed integer formulation requires gurobi packaged in cvxpy")
+        print "Mixed integer formulation requires gurobi packaged in cvxpy"
         raise ImportError
         
     gurobipy.setParam('LogFile', '')
@@ -189,7 +184,7 @@ def solveMIP(pb, surfaces, MIP = True, draw_scene = None, plot = True):
     res = prob.solve(solver=cp.GUROBI, verbose=False )
     t2 = clock()
     res = tovals(varReal)
-    print("time to solve MIP ", timMs(t1,t2))
+    print "time to solve MIP ", timMs(t1,t2)
 
     
     plot = plot and draw_scene is not None 
