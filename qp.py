@@ -6,13 +6,13 @@ from scipy.optimize import linprog
 
 __eps = 0.00001
 
-# GLPK_OK = False  
-# try:
-    # import glpk
-    # GLPK_OK = True
+GLPK_OK = False  
+try:
+    import glpk
+    GLPK_OK = True
 
-# except ImportError:
-    # pass
+except ImportError:
+    pass
 
 GUROBI_OK = False
 try:

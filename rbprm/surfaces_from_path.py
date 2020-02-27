@@ -157,6 +157,9 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
     end = False
     i = 0
     while not end: # for all the path
+      # print ('t seq', t)
+      t -= discretizationStepSize
+      if t < 0 : t = 0.
       phase_contacts_names = []
       while t <= current_phase_end: # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
         q = ps.configAtParam(pId, t)
@@ -189,10 +192,12 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
 
       # increase values for next phase
       i += 1 
-      t = i*phaseStepSize - discretizationStepSize
+      t = i*phaseStepSize
       if current_phase_end == pathLength:
         end = True
-      current_phase_end += phaseStepSize
+      if t >= pathLength:
+        t = pathLength
+      current_phase_end = i*phaseStepSize + discretizationStepSize
       if current_phase_end >= pathLength:
         current_phase_end = pathLength
     # end for all the guide path
@@ -202,7 +207,9 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
     # get rotation matrix of the root at each discretization step
     configs = []
     for t in arange (0, pathLength, phaseStepSize) :
+      # print ('t R', t)
       configs.append(ps.configAtParam(pId, t)) 
+    configs.append(ps.configAtParam(pId, pathLength)) 
         
     R = getRotationMatrixFromConfigs(configs)
     return R,seqs
