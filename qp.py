@@ -63,7 +63,7 @@ def quadprog_solve_qp(P, q, G=None, h=None, C=None, d=None, verbose = False):
         res = quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq)
         return ResultData(res[0],  'opt', True, res[1])
     except:
-        return ResultData(res[0],  'unfeasible', False, 0.)
+        return ResultData(None,  'unfeasible', False, 0.)
         
 
 
@@ -143,7 +143,6 @@ if GLPK_OK:
 
 
 if GUROBI_OK:  
-    grb.setParam('OutputFlag', 1)
     #solve linear programm using gurobi
     # min q' x  
     #subject to  A x <= b
@@ -185,8 +184,11 @@ if GUROBI_OK:
             
         model.modelSense = grb.GRB.MINIMIZE
         model.optimize()
-        res = [el.x for el in cVars]
-        return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+        try:
+            res = [el.x for el in cVars]
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+        except:
+            return ResultData(0.,  model.Status, False, 0.)
         
         
         

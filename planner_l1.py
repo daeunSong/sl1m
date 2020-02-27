@@ -233,8 +233,7 @@ def EqualityConstraint(phaseDataT, E, e, startCol, endCol, startRowEq):
             idS += NUM_SLACK_PER_SURFACE
             sRow += 1
         return sRow 
-    
-
+        
 def slackSelectionMatrix(pb):
     nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
     c = zeros(nvars)
@@ -248,15 +247,15 @@ def slackSelectionMatrix(pb):
         cIdx += phaseVars
     assert cIdx == nvars
     return c
-    
-    
+
+
 def normalisedSlackSelectionMatrix(pb, nVarTotal):
     nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
     res = zeros(nVarTotal)
     res[nvars:] = ones(nVarTotal - nvars)
     return res
-    
-     
+
+
 def numSlackPhases(slackMatrix):
     nPhases = 0; 
     prev = -10;
@@ -264,18 +263,18 @@ def numSlackPhases(slackMatrix):
     idxes = []
     for idx, el in enumerate(slackMatrix):
         if el > 0.5:
-            print ("IDX OK", idx)
+            # print ("IDX OK", idx)
             if idx - prev > 2:
-                print ("in")
+                # print ("in")
                 nPhases += 1
                 nEntriesAndIndices += [[idx,0]]
                 idxes += [[]]
             nEntriesAndIndices[-1][1]+=1
-            print (idxes[-1] )
-            print (idxes )
+            # print (idxes[-1] )
+            # print (idxes )
             idxes[-1] += [idx]
             prev = idx
-    print ("idxes", idxes)
+    # print ("idxes", idxes)
     return nPhases, nEntriesAndIndices
     
 def convertProblemToLp(pb, convertSurfaces = True):    
@@ -312,27 +311,27 @@ def convertProblemToLp(pb, convertSurfaces = True):
     assert startRow   == A.shape[0]
     
     #testing: adding l1 norm minimization on normalized scaling values to remove distance bias
-    
+
     slackMatrix = slackSelectionMatrix(pb)
     nSlacks = int(sum([el for el in slackMatrix if el > 0.5]) )
     #adding as many new integer variables i 
     nSlackPhases, nentriesPerPhase = numSlackPhases(slackMatrix)
     nAddIneqConstraints = nSlacks * 2
     # ~ nAddIneqConstraints = nSlacks
-    
+
     Aplus = zeros((A.shape[0] + nAddIneqConstraints, A.shape[1] + nSlacks))
     Aplus[:A.shape[0], :A.shape[1]] = A
     bplus = zeros(b.shape[0] + nAddIneqConstraints)
     bplus[:b.shape[0]] = b
-    
+
     # ~ nEqPlus = len(nentriesPerPhase)
     nEqPlus = 0
     Eplus = zeros((E.shape[0] + nEqPlus, E.shape[1] + nSlacks))
     Eplus[:E.shape[0], :E.shape[1]] = E
     eplus = zeros(e.shape[0] + nEqPlus)
     eplus[:e.shape[0]] = e
-    
-    
+
+
     # nSlacks additional constraints:  M i >=  alpha_i    => alpha_i - M  i <= 0
     Aplus[A.shape[0]:A.shape[0] + nSlacks, A.shape[1]:] = - M * identity(nSlacks)
     iSlack = 0
@@ -346,19 +345,17 @@ def convertProblemToLp(pb, convertSurfaces = True):
             iSlack+=1
         # ~ eplus[E.shape[0] +iEq] = num - 1
         # ~ iEq += 1
-    
+
     # ~ Aplus[A.shape[0] + nSlacks:, A.shape[1]:] = identity(nSlacks)
     # ~ bplus[-nSlacks:] = ones(nSlacks)
-    
-    
-    
+
+
+
     # ~ A,b = normalize([A,b])
     # ~ E,e = normalize([E,e])
     A,b = normalize([Aplus,bplus])
     E,e = normalize([Eplus,eplus])
     return (A,b,E,e)
-        
-    
 
 def num_non_zeros(pb, res):
     # nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
@@ -561,7 +558,6 @@ def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = 
 
 if __name__ == '__main__':
     from sl1m.stand_alone_scenarios.complex import gen_stair_pb,  draw_scene
-    # ~ from sl1m.stand_alone_scenarios.escaliers import gen_stair_pb,  draw_scene
     pb = gen_stair_pb()    
     
     t1 = clock()
@@ -569,19 +565,36 @@ if __name__ == '__main__':
     
     A,b = normalize([A,b])
     C = identity(A.shape[1]) * 0.00001
-    # ~ c =  slackSelectionMatrix(pb) * 100.
-    c = normalisedSlackSelectionMatrix(pb,A.shape[1]) * 100
+    c =  slackSelectionMatrix(pb) * 100.
     t2 = clock()
-    res = qp.solve_lp_gurobi(c,A,b,E,e).x
-    # ~ res = qp.quadprog_solve_qp(C,c,A,b,E,e).x
-    # ~ res = qp.solve_lp_glpk(c,A,b,E,e).x
+    res = qp.quadprog_solve_qp(C, c,A,b,E,e)
     t3 = clock()
     
     print("time to set up problem" , timMs(t1,t2))
     print("time to solve problem"  , timMs(t2,t3))
     print("total time"             , timMs(t1,t3))
     
-
+    coms, footpos, allfeetpos = retrieve_points_from_res(pb, res)
+    ax = draw_scene(None)
+    plotQPRes(pb, res, ax=ax, plot_constraints = False)
+    
+    surfaces, indices = bestSelectedSurfaces(pb, res)
+    for i, phase in enumerate(pb["phaseData"]):  
+        phase["S"] = [surfaces[i]]
+        
+    t1 = clock()
+    A, b, E, e = convertProblemToLp(pb, False)
+    
+    
+    C = identity(A.shape[1])
+    c = zeros(A.shape[1])
+    t2 = clock()
+    res = qp.quadprog_solve_qp(C, c,A,b,E,e)
+    t3 = clock()
+    
+    print("time to set up problem" , timMs(t1,t2))
+    print("time to solve problem"  , timMs(t2,t3))
+    print("total time"             , timMs(t1,t3))
     
     coms, footpos, allfeetpos = retrieve_points_from_res(pb, res)
     ax = draw_scene(None)
