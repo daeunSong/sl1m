@@ -147,29 +147,18 @@ def getSurfacesFromPathContinuous(rbprmBuilder, ps, surfaces_dict, pId, viewer =
     
 
 
-"""
-LARGE_STEP_SIZE = 1.3
-SMALL_STEP_SIZE = 1.0
-
-def getSurfacesFromPathContinuous(rbprmBuilder, ps, surfaces_dict, pId, viewer = None, phaseStepSize = 1., useIntersection = False):
+def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer = None, phaseStepSize = 1., useIntersection = False):
     pathLength = ps.pathLength(pId) # length of the path
-    discretizationStepSize = 0.5 # step at which we check the colliding surfaces
+    discretizationStepSize = 0.4 # step at which we check the colliding surfaces
     
     seqs = [] # list of list of surfaces : for each phase contain a list of surfaces. One phase is defined by moving of 'step' along the path
     t = 0.
-    current_phase_end = phaseStepSize
+    current_phase_end = discretizationStepSize
     end = False
     i = 0
-    phase_contacts_names = []
-    configs = []
-    
     while not end: # for all the path
-      phase_contacts_prev = phase_contacts_names
       phase_contacts_names = []
-      
-      configs.append(ps.configAtParam(pId, t)) 
-      
-      while t < current_phase_end: # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
+      while t <= current_phase_end: # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
         q = ps.configAtParam(pId, t)
         step_contacts = getContactsNames(rbprmBuilder,i,q)
         for contact_name in step_contacts : 
@@ -177,30 +166,21 @@ def getSurfacesFromPathContinuous(rbprmBuilder, ps, surfaces_dict, pId, viewer =
             phase_contacts_names.append(contact_name)
         t += discretizationStepSize
       # end current phase
-      # phase_contacts_names = sorted(phase_contacts_names) # is this step needed?
-      
-      # # if the previous phase and the current phase has different surface candidates, decrease the phase step
-      # if phase_contacts_prev != phase_contacts_names:
-          # # print "different surface candidates"
-          # phaseStepSize = SMALL_STEP_SIZE
-      # else:
-          # # print "same surface candidates"
-          # phaseStepSize = LARGE_STEP_SIZE          
         
       # get all the surfaces from the names and add it to seqs: 
       if useIntersection : 
         intersections = getContactsIntersections(rbprmBuilder,i,q)
-        if viewer:
-            for intersection in intersections:
-                displaySurfaceFromPoints(viewer,intersection,[0,0,1,1])
             
       phase_surfaces = []
       for name in phase_contacts_names:
         surface = surfaces_dict[name][0] # [0] because the last vector contain the normal of the surface
         if useIntersection and area(surface) > MAX_SURFACE : 
-          if name in step_contacts : 
-            intersection = intersections[step_contacts.index(name)]
-            phase_surfaces.append(intersection)
+          if len(step_contacts) == len(intersections): # in case of the error with contact detection
+            if name in step_contacts : 
+              intersection = intersections[step_contacts.index(name)]
+              phase_surfaces.append(intersection)
+          else:
+            phase_surfaces.append(surface)
         else :
           phase_surfaces.append(surface) 
 
@@ -208,8 +188,8 @@ def getSurfacesFromPathContinuous(rbprmBuilder, ps, surfaces_dict, pId, viewer =
       seqs.append(phase_surfaces)
 
       # increase values for next phase
-      t = current_phase_end
       i += 1 
+      t = i*phaseStepSize - discretizationStepSize
       if current_phase_end == pathLength:
         end = True
       current_phase_end += phaseStepSize
@@ -220,13 +200,12 @@ def getSurfacesFromPathContinuous(rbprmBuilder, ps, surfaces_dict, pId, viewer =
     seqs = listToArray(seqs) # convert from list to array, we cannot do this before because sorted() require list
 
     # get rotation matrix of the root at each discretization step
-    # configs = []
-    # for t in arange (0, pathLength, phaseStepSize) :
-      # configs.append(ps.configAtParam(pId, t)) 
+    configs = []
+    for t in arange (0, pathLength, phaseStepSize) :
+      configs.append(ps.configAtParam(pId, t)) 
         
     R = getRotationMatrixFromConfigs(configs)
     return R,seqs
-"""
 
 def getSurfacesFromPath(rbprmBuilder, configs, surfaces_dict, viewer = None, useIntersection = False, useMergePhase = False):
   seqs = [] 
