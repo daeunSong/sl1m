@@ -309,30 +309,6 @@ def num_non_zeros(pb, res):
                 #~ print "lens ", len([[phase["S"][idx]] for idx in sorted_surfaces]  )
         cIdx += phaseVars
     return indices, wrongsurfaces, wrongsurfaces_indices
-
-def num_non_zeros_cut(pb, res):
-    # nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
-    indices = []
-    cIdx = 0
-    wrongsurfaces = []
-    wrongsurfaces_indices = []
-    for i, phase in enumerate(pb["phaseData"]):  
-        numSurfaces = len(phase["S"])
-        phaseVars = numVariablesForPhase(phase)
-        if numSurfaces > 1:
-            startIdx = cIdx + DEFAULT_NUM_VARS
-            betas = [res[startIdx+j] for j in range(0,numSurfaces*2,2) ]
-            if array(betas).min() > 0.01: ####
-                # print "wrong ", i, array(betas).min()
-                indices += [i]
-                sorted_surfaces = np.argsort(betas)
-                sorted_surfaces = sorted_surfaces[:2]
-                wrongsurfaces_indices += [sorted_surfaces]
-                #~ print "sorted_surfaces ",sorted_surfaces
-                wrongsurfaces += [[[phase["S"][idx]] for idx in sorted_surfaces]  ]
-                #~ print "lens ", len([[phase["S"][idx]] for idx in sorted_surfaces]  )
-        cIdx += phaseVars
-    return indices, wrongsurfaces, wrongsurfaces_indices
     
 def isSparsityFixed(pb, res):
     indices, wrongsurfaces, wrongsurfaces_indices = num_non_zeros(pb, res)
@@ -370,7 +346,8 @@ def generateAllFixedScenariosWithFixedSparsity(pb, res):
     if comb >1000:
         print ("problem probably too big ", comb)
         # return 1
-        indices, wrongsurfaces, wrongsurfaces_indices = num_non_zeros_cut(pb, res)
+        wrongsurfaces = [wsurfs[:2] for wsurfs in wrongsurfaces]
+        wrongsurfaces_indices = [windices[:2] for windices in wrongsurfaces_indices]
         genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res)
     else:
         genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res)

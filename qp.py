@@ -6,7 +6,7 @@ from scipy.optimize import linprog
 
 __eps = 0.00001
 
-# GLPK_OK = False  
+GLPK_OK = False  
 # try:
     # import glpk
     # GLPK_OK = True
