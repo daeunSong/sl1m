@@ -342,7 +342,12 @@ def generateAllFixedScenariosWithFixedSparsity(pb, res):
     res = []
     if comb >1000:
         print ("problem probably too big ", comb)
-        return 1
+        if len(indices) >= 10:
+            return 1
+        else:
+            wrongsurfaces = [wsurfaces[:2] for wsurfaces in wrongsurfaces]
+            wrongsurfaces_indices = [windices[:2] for windices in wrongsurfaces_indices]
+            genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res)
     else:
         genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res)
     return res
