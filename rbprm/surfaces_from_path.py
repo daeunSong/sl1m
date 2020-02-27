@@ -160,32 +160,43 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
       # print ('t seq', t)
       t -= discretizationStepSize
       if t < 0 : t = 0.
-      phase_contacts_names = []
+      phase_contacts_names = []; intersections = []
       while t <= current_phase_end: # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
         q = ps.configAtParam(pId, t)
         step_contacts = getContactsNames(rbprmBuilder,i,q)
         for contact_name in step_contacts : 
           if not contact_name in phase_contacts_names:
             phase_contacts_names.append(contact_name)
+        if useIntersection : 
+            intersections += getContactsIntersections(rbprmBuilder,i,q)
         t += discretizationStepSize
       # end current phase
         
       # get all the surfaces from the names and add it to seqs: 
-      if useIntersection : 
-        intersections = getContactsIntersections(rbprmBuilder,i,q)
+
             
       phase_surfaces = []
-      for name in phase_contacts_names:
-        surface = surfaces_dict[name][0] # [0] because the last vector contain the normal of the surface
-        if useIntersection and area(surface) > MAX_SURFACE : 
-          if len(step_contacts) == len(intersections): # in case of the error with contact detection
-            if name in step_contacts : 
-              intersection = intersections[step_contacts.index(name)]
-              phase_surfaces.append(intersection)
-          else:
-            phase_surfaces.append(surface)
-        else :
-          phase_surfaces.append(surface) 
+      
+      if useIntersection: 
+        for intersection in intersections:
+          if area(intersection) > MAX_SURFACE:
+            phase_surfaces.append(intersection)
+      if len(phase_surfaces) == 0:
+        for name in phase_contacts_names:
+          surface = surfaces_dict[name][0] # [0] because the last vector contain the normal of the surface
+          phase_surfaces.append(surface)     
+      
+      # for name in phase_contacts_names:
+        # surface = surfaces_dict[name][0] # [0] because the last vector contain the normal of the surface
+        # if useIntersection and area(surface) > MAX_SURFACE : 
+          # if len(step_contacts) == len(intersections): # in case of the error with contact detection
+            # if name in step_contacts : 
+              # intersection = intersections[step_contacts.index(name)]
+              # phase_surfaces.append(intersection)
+          # else:
+            # phase_surfaces.append(surface)
+        # else :
+          # phase_surfaces.append(surface) 
 
       phase_surfaces = sorted(phase_surfaces) # why is this step required ? without out the lp can fail
       seqs.append(phase_surfaces)
@@ -194,6 +205,8 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
       i += 1 
       t = i*phaseStepSize
       if current_phase_end == pathLength:
+        end = True
+      if t - discretizationStepSize >= pathLength:
         end = True
       if t >= pathLength:
         t = pathLength
@@ -209,7 +222,8 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
     for t in arange (0, pathLength, phaseStepSize) :
       # print ('t R', t)
       configs.append(ps.configAtParam(pId, t)) 
-    configs.append(ps.configAtParam(pId, pathLength)) 
+    if len(configs) != len(seqs):
+      configs.append(ps.configAtParam(pId, pathLength)) 
         
     R = getRotationMatrixFromConfigs(configs)
     return R,seqs
