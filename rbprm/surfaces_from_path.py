@@ -33,6 +33,8 @@ def getConfigsFromPath (ps, pathId = 0, discretisationStepSize = 1.) :
   pathLength = ps.pathLength(pathId)
   for s in arange (0, pathLength, discretisationStepSize) :
     configs.append(ps.configAtParam(pathId, s))
+  if pathLength % discretisationStepSize != 0:
+    configs.append(ps.configAtParam(pathId, pathLength))
   return configs
 
 # get all the contact surfaces (pts and normal)
@@ -153,12 +155,12 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
     
     seqs = [] # list of list of surfaces : for each phase contain a list of surfaces. One phase is defined by moving of 'step' along the path
     t = 0.
-    current_phase_end = discretizationStepSize
+    current_phase_end = t + discretizationStepSize/2
     end = False
     i = 0
     while not end: # for all the path
       # print ('t seq', t)
-      t -= discretizationStepSize
+      t -= phaseStepSize/2
       if t < 0 : t = 0.
       phase_contacts_names = []; intersections = []
       while t <= current_phase_end: # get the names of all the surfaces that the rom collide while moving from current_phase_end-step to current_phase_end
@@ -206,11 +208,11 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
       t = i*phaseStepSize
       if current_phase_end == pathLength:
         end = True
-      if t - discretizationStepSize >= pathLength:
-        end = True
       if t >= pathLength:
-        t = pathLength
-      current_phase_end = i*phaseStepSize + discretizationStepSize
+        # t = pathLength
+        end = True
+      current_phase_end = t + discretizationStepSize/2
+        
       if current_phase_end >= pathLength:
         current_phase_end = pathLength
     # end for all the guide path
@@ -235,6 +237,8 @@ def getSurfacesFromPath(rbprmBuilder, configs, surfaces_dict, viewer = None, use
     seq = [] 
     intersections = getContactsIntersections(rbprmBuilder,i,q) # get intersections at config
     phase_contacts_names = getContactsNames(rbprmBuilder,i,q) # get the list of names of the surface in contact at config        
+    if len(intersections) == 0:
+      seq.append(surfaces_dict[phase_contacts_names[0]][0])
     for j, intersection in enumerate(intersections):
       if useIntersection and area(intersection) > MAX_SURFACE : # append the intersection
         seq.append(intersection) 
