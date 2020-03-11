@@ -217,6 +217,7 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
         current_phase_end = pathLength
     # end for all the guide path
     
+    seqs = removeDuplicates(seqs)
     seqs = listToArray(seqs) # convert from list to array, we cannot do this before because sorted() require list
 
     # get rotation matrix of the root at each discretization step
