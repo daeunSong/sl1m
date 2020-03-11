@@ -189,8 +189,83 @@ if GUROBI_OK:
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
         except:
             return ResultData(0.,  model.Status, False, 0.)
+            
+
+    def solve_MIP_gurobi(c, A=None, b=None, E=None, e=None):
         
+        model = grb.Model("lp")
         
+        rdim = A.shape[1]
+        
+        cVars = []
+        for el in (c):
+            cVars.append(model.addVar(obj = el, vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x'))
+        
+        # Update model to integrate new variables
+        model.update()              
+        x = array(model.getVars(), copy=False)
+        
+        # inequality constraints
+        if A.shape[0] > 0:
+            for i in range(A.shape[0]):
+                idx = [j for j, el in enumerate(A[i].tolist()) if el != 0.]
+                variables = x[idx]
+                coeff = A[i,idx]
+                expr = grb.LinExpr(coeff, variables)
+                model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
+        model.update()
+        
+        # equality constraints
+        if E.shape[0] > 0:        
+            for i in range(E.shape[0]):
+                idx = [j for j, el in enumerate(E[i].tolist()) if el != 0.]
+                variables = x[idx]
+                coeff = E[i,idx]
+                expr = grb.LinExpr(coeff, variables)
+                model.addConstr(expr, grb.GRB.EQUAL, e[i])
+        model.update()
+        
+        slackIndices = [i for i,el in enumerate (c) if el > 0]
+        numSlackVariables = len([el for el in c if el > 0])
+        
+        bVars = [] # boolean vars
+        for i in range(0, numSlackVariables):
+            bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
+        
+        model.update()        
+        y = array([el for el in model.getVars() if el.varName == 'y'], copy=False)
+        
+        # inequality
+        for i, el in enumerate(slackIndices):
+            expr = grb.LinExpr([(1.0,x[el]),(-100.,y[i])])
+            model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
+            
+        # equality
+        currentSum = []
+        previousL = 0
+        for i, el in enumerate(slackIndices):
+            if i != 0 and el - previousL > 2.:
+                assert len(variables) > 0
+                expr = grb.LinExpr(ones(len(variables)), variables)
+                model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
+                variables = [y[i]]
+            elif el!=0:
+                variables += [y[i]]
+            previousL = el
+        if len(variables) > 1:
+            expr = grb.LinExpr(ones(len(variables)), variables)
+            model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
+        model.update() 
+
+        #model.modelSense = grb.GRB.MINIMIZE
+        expr = grb.LinExpr(ones(numSlackVariables), y)
+        model.setObjective(expr,grb.GRB.MINIMIZE)
+        model.optimize()        
+        try:
+            res = [el.x for el in cVars]
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+        except:
+            return ResultData(0.,  model.Status, False, 0.)
         
 
 if __name__ == '__main__':
