@@ -1,5 +1,5 @@
 import quadprog
-from numpy import array, dot, vstack, hstack, asmatrix, identity, abs
+from numpy import array, dot, vstack, hstack, asmatrix, identity, abs, ones
 
 from scipy.optimize import linprog
 
@@ -241,7 +241,7 @@ if GUROBI_OK:
             model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
             
         # equality
-        currentSum = []
+        variables = []
         previousL = 0
         for i, el in enumerate(slackIndices):
             if i != 0 and el - previousL > 2.:

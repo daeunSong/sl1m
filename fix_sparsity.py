@@ -160,7 +160,7 @@ def solveMIP(pb, surfaces, MIP = True, draw_scene = None, plot = True):
     ###
     c = pl1.slackSelectionMatrix(pb)
     t1 = clock()
-    res = qp.solve_lp_gurobi(c,A,b,E,e)
+    res = qp.solve_MIP_gurobi(c,A,b,E,e)
     t2 = clock()
     
     if res.success:
