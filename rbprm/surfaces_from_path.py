@@ -1,7 +1,7 @@
 from numpy import arange, array
 from narrow_convex_hull import getSurfaceExtremumPoints, removeDuplicates, normal, area
 from tools.display_tools import displaySurfaceFromPoints
-from pinocchio import XYZQUATToSe3
+from pinocchio import XYZQUATToSE3
 import numpy as np
 
 ROBOT_NAME = 'talos'
@@ -21,6 +21,7 @@ def listToArray (seqs):
   nseq = []; nseqs= []
   for seq in seqs:
     nseq = []
+    seq.sort()
     for surface in seq:
       if surface != []:
         nseq.append(array(surface).T)
@@ -54,7 +55,7 @@ def getRotationMatrixFromConfigs(configs) :
   R = []
   for config in configs:
     q_rot = config[3:7]
-    R.append(array(XYZQUATToSe3([0,0,0] + q_rot).rotation))
+    R.append(array(XYZQUATToSE3([0,0,0] + q_rot).rotation))
   return R
     
 # get contacted surface names at configuration
@@ -155,7 +156,7 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
     
     seqs = [] # list of list of surfaces : for each phase contain a list of surfaces. One phase is defined by moving of 'step' along the path
     t = 0.
-    current_phase_end = t + discretizationStepSize/2
+    current_phase_end = t + phaseStepSize/2
     end = False
     i = 0
     while not end: # for all the path
@@ -211,13 +212,12 @@ def getSurfacesFromPathContinuous_(rbprmBuilder, ps, surfaces_dict, pId, viewer 
       if t >= pathLength:
         # t = pathLength
         end = True
-      current_phase_end = t + discretizationStepSize/2
+      current_phase_end = t + phaseStepSize/2
         
       if current_phase_end >= pathLength:
         current_phase_end = pathLength
     # end for all the guide path
     
-    seqs = removeDuplicates(seqs)
     seqs = listToArray(seqs) # convert from list to array, we cannot do this before because sorted() require list
 
     # get rotation matrix of the root at each discretization step
