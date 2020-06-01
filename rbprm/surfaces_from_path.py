@@ -1,7 +1,7 @@
 from numpy import arange, array
 from narrow_convex_hull import getSurfaceExtremumPoints, removeDuplicates, normal, area
 from tools.display_tools import displaySurfaceFromPoints
-from pinocchio import XYZQUATToSE3
+from pinocchio import XYZQUATToSe3
 import numpy as np
 
 ROBOT_NAME = 'talos'
@@ -27,6 +27,12 @@ def listToArray (seqs):
         nseq.append(array(surface).T)
     nseqs.append(nseq)
   return nseqs
+  
+def getCenterPts (surface):
+    pts = []
+    for points in surface:
+        pts.append(np.average(points))
+    return pts
 
 # get configurations along the path  
 def getConfigsFromPath (ps, pathId = 0, discretisationStepSize = 1.) :
@@ -34,10 +40,19 @@ def getConfigsFromPath (ps, pathId = 0, discretisationStepSize = 1.) :
   pathLength = ps.pathLength(pathId)
   for s in arange (0, pathLength, discretisationStepSize) :
     configs.append(ps.configAtParam(pathId, s))
-  if pathLength % discretisationStepSize != 0:
-    configs.append(ps.configAtParam(pathId, pathLength))
+  #if pathLength % discretisationStepSize != 0:
+  configs.append(ps.configAtParam(pathId, pathLength))
   return configs
 
+def getConfigsFromPath_mpc (ps, pathId = 0, discretisationStepSize = 1.) :
+  configs = []
+  pathLength = ps.pathLength(pathId)
+  for s in arange (0, pathLength, discretisationStepSize) :
+    configs.append(ps.configAtParam(pathId, s))
+  #if pathLength % discretisationStepSize != 0:
+  configs.append(ps.configAtParam(pathId, pathLength))
+  return configs
+  
 # get all the contact surfaces (pts and normal)
 def getAllSurfaces(afftool) :
   l = afftool.getAffordancePoints("Support")
@@ -52,10 +67,11 @@ def getAllSurfacesDict (afftool) :
 
 # get rotation matrices form configs
 def getRotationMatrixFromConfigs(configs) :
+    #return [array(XYZQUATToSe3(config[0:7]).rotation) for config in configs]
   R = []
   for config in configs:
     q_rot = config[3:7]
-    R.append(array(XYZQUATToSE3([0,0,0] + q_rot).rotation))
+    R.append(array(XYZQUATToSe3([0,0,0]+q_rot).rotation))
   return R
     
 # get contacted surface names at configuration
@@ -74,6 +90,18 @@ def getContactsIntersections(rbprmBuilder,i,q):
     intersections = rbprmBuilder.getContactSurfacesAtConfig(q, ROBOT_NAME + '_rleg_rom')
   # return intersections
   return removeNull(intersections)
+
+# get contacted surface names at configuration
+def getContactsNames_mpc(rbprmBuilder,i,q):
+    step_contacts = rbprmBuilder.clientRbprm.rbprm.getCollidingObstacleAtConfig(q, ROBOT_NAME + '_lleg_rom') 
+    step_contacts += rbprmBuilder.clientRbprm.rbprm.getCollidingObstacleAtConfig(q, ROBOT_NAME + '_rleg_rom')
+    return step_contacts
+
+# get intersections with the rom and surface at configuration
+def getContactsIntersections_mpc(rbprmBuilder,i,q):
+    intersections = rbprmBuilder.getContactSurfacesAtConfig(q, ROBOT_NAME + '_lleg_rom') 
+    intersections += rbprmBuilder.getContactSurfacesAtConfig(q, ROBOT_NAME + '_rleg_rom')
+    return removeNull(intersections)
 
 # merge phases with the next phase
 def getMergedPhases (seqs):
@@ -257,4 +285,25 @@ def getSurfacesFromPath(rbprmBuilder, configs, surfaces_dict, viewer = None, use
   seqs = listToArray(seqs) 
   R = getRotationMatrixFromConfigs(configs)
   return R,seqs
+  
+  
+def getSurfacesFromPath_mpc(rbprmBuilder, configs, surfaces_dict, num_step = 3, viewer = None, useIntersection = False):
+    seqs = []; res = []
+    for i,q in enumerate(configs):
+        intersections = getContactsIntersections_mpc(rbprmBuilder, i, q) # get intersections at config
+        phase_contacts_names = getContactsNames_mpc(rbprmBuilder, i, q) # get the list of surface names in contact at config
+        for j, intersection in enumerate(intersections):
+            if useIntersection and area(intersection) > MAX_SURFACE : 
+                seqs.append(intersection)
+            else:
+                seqs.append(surfaces_dict[phase_contacts_names[j]][0])
     
+    seqs = removeDuplicates(seqs)
+    for i in range(num_step):
+        res += [seqs]
+        
+    res = listToArray(res)
+    R = getRotationMatrixFromConfigs(configs[0:num_step]) #TEMP
+        
+    return R, res
+        
