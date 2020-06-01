@@ -238,9 +238,9 @@ if GUROBI_OK:
                 model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
                 
         
-        #model.modelSense = grb.GRB.MINIMIZE
+        #obj = grb.LinExpr(c, x)
         obj = cost(x, nVarEnd, goal)
-        model.setObjective(obj,grb.GRB.MINIMIZE)
+        model.setObjective(obj,grb.GRB.MINIMIZE)     
         model.optimize()
         try:
             res = [el.x for el in cVars]
@@ -314,9 +314,8 @@ if GUROBI_OK:
             model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
         model.update() 
 
-        model.modelSense = grb.GRB.MINIMIZE
-        #expr = grb.LinExpr(ones(numSlackVariables), y)
-        #model.setObjective(expr,grb.GRB.MINIMIZE)
+        expr = grb.LinExpr(ones(numSlackVariables), y)
+        model.setObjective(expr,grb.GRB.MINIMIZE)
         model.optimize()        
         try:
             res = [el.x for el in cVars]
@@ -395,9 +394,8 @@ if GUROBI_OK:
             model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
         model.update() 
 
-        #model.modelSense = grb.GRB.MINIMIZE
-        #expr = grb.LinExpr(ones(numSlackVariables), y)
-        expr = cost(x, nVarEnd, goal)
+        expr = grb.LinExpr(ones(numSlackVariables), y)
+        expr += cost(x, nVarEnd, goal)
         model.setObjective(expr,grb.GRB.MINIMIZE)
         model.optimize()        
         try:
