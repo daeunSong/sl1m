@@ -25,6 +25,24 @@ from time import clock
 np.set_printoptions(formatter={'float': lambda x: "{0:0.1f}".format(x)})
 DEFAULT_NUM_VARS = 4
 
+##### pareto
+    
+import pickle
+
+def readFromFile (fileName):
+  data = []
+  try:
+      with open(fileName,'rb') as f:
+        while True:
+          try:
+            line = pickle.load(f)
+          except EOFError:
+            break
+          data.append(line)  
+  except:
+      return None
+  return data[0]
+
 
 ### This solver is called when the sparsity is fixed. It assumes the first contact surface for each phase
 ### is the one used for contact creation.
@@ -484,8 +502,18 @@ def solveL1_gr(pb, surfaces, draw_scene = None, plot = True):
         
         # return solve(pb,surfaces, draw_scene = draw_scene, plot = True )  
 
+EPS = 0.001
 
-def solveL1_gr_cost(pb, surfaces, draw_scene = None, plot = True):     
+def reweight (x, c):
+    e = ones(x.shape[0]) * EPS
+    for i,el in enumerate(c):
+        if el != 0:
+            #print x[i], e[i]
+            e[i] = max(x[i],e[i])
+    return (1. / (x + e)) * c
+    #return (1. / (x + ones(x.shape[0]) * EPS)) * c
+
+def solveL1_gr_cost(pb, surfaces, draw_scene = None, plot = True, weight=0., linear=False):     
     A, b, E, e = pl1.convertProblemToLp(pb)    
     C = identity(A.shape[1]) * 0.00001
     c = pl1.slackSelectionMatrix(pb)
@@ -493,7 +521,7 @@ def solveL1_gr_cost(pb, surfaces, draw_scene = None, plot = True):
         
     t1 = clock()
     #res = qp.quadprog_solve_qp(C, c,A,b,E,e)
-    res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][0],A,b,E,e)
+    res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][1],A,b,E,e,weight,linear)
     # ~ res = qp.solve_lp_gurobi(c,A,b,E,e).x
     # ~ res = qp.solve_lp_glpk(c,A,b,E,e).x
     t2 = clock()
@@ -501,63 +529,126 @@ def solveL1_gr_cost(pb, surfaces, draw_scene = None, plot = True):
     
     if res.success:
         #time1 = res.time
+        tmp = res
         res = res.x
     else:
         print ("CASE4: fail to make the first guess")
         return 4,4,4
+        
         
     ok = pl1.isSparsityFixed(pb, res)
     solutionIndices = None
     solutionComb = None
     pbs = None
     timeComb = 0.
+    SOLVECOMB = False
     
-    if not ok:
-        print "SOLVE COMB"
-        pbs = pl1.generateAllFixedScenariosWithFixedSparsity(pb, res)
+    
+    ## iterative reweighting
+    pb_prev = pb
+    res_prev = res
+    
+    i = 0
+    MAX_ITER = 70
+    while not ok and i <MAX_ITER:
+        print i, "th ITER"
+        SOLVECOMB = True
+        i +=1        
+        c = reweight(array(res), c)
+        res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][1],A,b,E,e,linear)
+        if res.success:
+            res = res.x
+            ok = pl1.isSparsityFixed(pb,res)
+            pb_prev = pb
+            res_prev = res
+        else:
+            pb = pb_prev
+            res = res_prev
         
-        t3 = clock()
+    
+    #if not ok:
+        #print "SOLVE COMB"
+        #SOLVECOMB = True
+        #pbs = pl1.generateAllFixedScenariosWithFixedSparsity(pb, res)
         
-        if pbs == 1:
-            print "CASE1: too big combinatorial"
-            return 1, 1, 1
+        #t3 = clock()
         
-        for (pbComb, comb, indices) in pbs:
-            A, b, E, e = pl1.convertProblemToLp(pbComb, convertSurfaces = False)
-            C = identity(A.shape[1]) * 0.00001
-            c = pl1.slackSelectionMatrix(pbComb)
+        #if pbs == 1:
+            #print "CASE1: too big combinatorial"
+            #return 1, 1, 1
+        
+        #for (pbComb, comb, indices) in pbs:
+            #A, b, E, e = pl1.convertProblemToLp(pbComb, convertSurfaces = False)
+            #C = identity(A.shape[1]) * 0.00001
+            #c = pl1.slackSelectionMatrix(pbComb)
 
-            nVarEnd = DEFAULT_NUM_VARS
-            res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][0],A,b,E,e)
-            #res = qp.solve_lp_gurobi(c,A,b,E,e)
-            #timeComb += res.time
-            if res.success:
-                res = res.x
-                if pl1.isSparsityFixed(pbComb, res):       
-                    coms, footpos, allfeetpos = pl1.retrieve_points_from_res(pbComb, res)
-                    pb = pbComb
-                    ok = True
-                    solutionIndices = indices[:]
-                    solutionComb = comb
-                    if plot:
-                        ax = draw_scene(surfaces)
-                        pl1.plotQPRes(pb, res, ax=ax)
-                    break
-            else:
-                print "unfeasible problem"
-                pass
+            #nVarEnd = DEFAULT_NUM_VARS
+            #res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][1],A,b,E,e,foot_fix,linear)
+            ##res = qp.solve_lp_gurobi(c,A,b,E,e)
+            ##timeComb += res.time
+            #if res.success:
+                #tmp = res
+                #res = res.x
+                #if pl1.isSparsityFixed(pbComb, res):       
+                    #coms, footpos, allfeetpos = pl1.retrieve_points_from_res(pbComb, res)
+                    #pb = pbComb
+                    #ok = True
+                    #solutionIndices = indices[:]
+                    #solutionComb = comb
+                    ##if plot:
+                        ##ax = draw_scene(surfaces)
+                        ##pl1.plotQPRes(pb, res, ax=ax)
+                    #break
+            #else:
+                #print "unfeasible problem"
+                #pass
             
-        t4 = clock()      
+        #t4 = clock()      
         #print "time to solve combinatorial ", timMs(t3,t4)
     time = time1+timeComb
     
     if ok:
-        surfacesret, indices = pl1.bestSelectedSurfaces(pb, res)        
-        for i, phase in enumerate(pb["phaseData"]): 
-            phase["S"] = [surfaces[i][indices[i]]]
-        if solutionIndices is not None:
-            for i, idx in enumerate(solutionIndices):
-                pb["phaseData"][idx]["S"] = [surfaces[idx][solutionComb[i]]]
+            
+        #surfacesret, indices = pl1.bestSelectedSurfaces(pb, res)        
+        #for i, phase in enumerate(pb["phaseData"]): 
+            #phase["S"] = [surfaces[i][indices[i]]]
+        #if solutionIndices is not None:
+            #for i, idx in enumerate(solutionIndices):
+                #pb["phaseData"][idx]["S"] = [surfaces[idx][solutionComb[i]]]
+        
+        ####----pareto
+        ##data = readFromFile("pareto_bridge_1_")
+        ##if data != None:
+            ##data += [[slacksum, dist, weight]]
+        ##else:
+            ##data = [[slacksum, dist, weight]]
+        ##with open("pareto_bridge_1_",'wb') as f:
+            ##pickle.dump(data,f)  
+                  
+        ######---------
+        
+        #if not SOLVECOMB:
+            #print "here"
+            #A, b, E, e = pl1.convertProblemToLp(pb)    
+            #C = identity(A.shape[1]) * 0.00001
+            #c = pl1.slackSelectionMatrix(pb)
+            #nVarEnd = pl1.numVariablesForPhase(pb["phaseData"][-1])
+                
+            ##t1 = clock()
+            ###res = qp.quadprog_solve_qp(C, c,A,b,E,e)
+            #res = qp.solve_lp_gurobi_cost(c,nVarEnd,pb["goal"][1],A,b,E,e, foot_fix)
+            ### ~ res = qp.solve_lp_gurobi(c,A,b,E,e).x
+            ### ~ res = qp.solve_lp_glpk(c,A,b,E,e).x
+            ##t2 = clock()
+            ##time1 = t2-t1
+            
+            #if res.success:
+                ##time1 = res.time
+                #res = res.x
+            
+        if plot:
+            ax = draw_scene(surfaces)
+            pl1.plotQPRes(pb, res, ax=ax)
         
         #return solve (pb, surfaces, draw_scene, plot)  
         #return solve_gr_cost (pb, surfaces, draw_scene, plot, time)  
@@ -573,7 +664,7 @@ def solveL1_gr_cost(pb, surfaces, draw_scene = None, plot = True):
 def tovals(variables):
     return array([el.value for el in variables])
 
-def solveMIP_gr_cost(pb, surfaces, MIP = True, draw_scene = None, plot = True):  
+def solveMIP_gr_cost(pb, surfaces, MIP = True, draw_scene = None, plot = True,linear=False):  
     if not MIP_OK:
         print "Mixed integer formulation requires gurobi packaged in cvxpy"
         raise ImportError
@@ -589,20 +680,20 @@ def solveMIP_gr_cost(pb, surfaces, MIP = True, draw_scene = None, plot = True):
     nVarEnd = pl1.numVariablesForPhase(pb["phaseData"][-1])
     
     t1 = clock()
-    res = qp.solve_MIP_gurobi_cost(c, nVarEnd, pb["goal"][0],A,b,E,e)
+    res = qp.solve_MIP_gurobi_cost(c, nVarEnd, pb["goal"][1],A,b,E,e,linear)
     #res = qpg.solveMIP(c,A,b,E,e)
     t2 = clock()
     
-    #if res.success:
-        #time = res.time
-    res = res.x
+    if res.success:
+        res = res.x
+    else:
+        print ("MIP fail")
+        return 1,1,1
     time = 0
     #del res[0]
-    res = array(res)
+    #res = array(res)
     print "time to solve MIP ", time
-    #else:
-        #print ("MIP fail")
-        #return 1,1,1
+
     ###
     
     plot = plot and draw_scene is not None 
