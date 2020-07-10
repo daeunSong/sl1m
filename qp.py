@@ -7,6 +7,7 @@ from scipy.optimize import linprog
 __eps = 0.00001
 
 GLPK_OK = False  
+
 try:
     import glpk
     GLPK_OK = True
@@ -27,11 +28,12 @@ except ImportError:
 
    
 class ResultData:
-    def __init__(self, x, status, success, cost):
+    def __init__(self, x, status, success, cost, model):
         self.x = x
         self.status = status
         self.success = success
         self.cost = cost
+        self.model = model
         
     def __str__(self):
         return "ResultData: \n \t solver status: " + str(self.status) + "\n \t success: " + str(self.success) + "\n \t x: " + str(self.x) + "\n \t cost: " + str(self.cost)
@@ -209,16 +211,14 @@ if GUROBI_OK:
         #
         return cx_end_diff + cy_end_diff + cz_end_diff 
         #return cx_end_diff * cx_end_diff + cy_end_diff * cy_end_diff + cz_end
-            
-    def solve_lp_gurobi_cost(c, nVarEnd, goal, A=None, b=None, E=None, e=None, weight=0., linear=False):
-        
+
+    def solve_lp_gurobi_cost_pre(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):              
         model = grb.Model("qp")
-        
         #add continuous variables
         cVars = []
         for i in range(0,len(c)):
             if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
-                cVars.append(model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
+                cVars.append(model.addVar(obj = 1., vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
             else:
                 cVars.append(model.addVar(obj = c[i], vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'slack%d' %i))
             
@@ -248,7 +248,6 @@ if GUROBI_OK:
                
         model.update()
                 
-        
         obj = grb.LinExpr(c, x) 
         if linear:
             obj += cost_(x, nVarEnd, goal) * weight
@@ -259,21 +258,51 @@ if GUROBI_OK:
         model.optimize()
         try:
             res = [el.x for el in cVars]
-            
-            sumslack = 0
-            for i,cc in enumerate(c):
-                sumslack += cc*res[i]
-            cx_end_diff = goal[0] - res[-nVarEnd]
-            cy_end_diff = goal[1] - res[-nVarEnd+1]
-            cz_end_diff = goal[2] - res[-nVarEnd+2]
-            if linear:  dist = cx_end_diff + cy_end_diff + cz_end_diff
-            else:       dist = cx_end_diff*cx_end_diff + cy_end_diff*cy_end_diff + cz_end_diff*cz_end_diff
-            
-            print (sumslack,dist)
-            
-            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
-            return ResultData(0.,  model.Status, False, 0.)
+            return ResultData(0.,  model.Status, False, 0., None)
+
+    def solve_lp_gurobi_cost(model, c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):
+        
+        cVars = []
+        x = array(model.getVars(), copy=False)        
+        #modify variables
+        for i in range(0,len(c)):
+            if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
+                x[i].setAttr(grb.GRB.Attr.Obj, 1.)
+            else:
+                x[i].setAttr(grb.GRB.Attr.Obj, c[i])
+            cVars.append(x[i])
+
+        model.update()
+
+        obj = grb.LinExpr(c, x) 
+        if linear:
+            obj += cost_(x, nVarEnd, goal) * weight
+        else:
+            obj += cost(x, nVarEnd, goal) * weight
+                    
+        model.setObjective(obj,grb.GRB.MINIMIZE)     
+        model.optimize()
+
+        try:
+            res = [el.x for el in cVars]
+            
+            # sumslack = 0
+            # for i,cc in enumerate(c):
+            #     sumslack += cc*res[i]
+            # cx_end_diff = goal[0] - res[-nVarEnd]
+            # cy_end_diff = goal[1] - res[-nVarEnd+1]
+            # cz_end_diff = goal[2] - res[-nVarEnd+2]
+            # if linear:  dist = cx_end_diff + cy_end_diff + cz_end_diff
+            # else:       dist = cx_end_diff*cx_end_diff + cy_end_diff*cy_end_diff + cz_end_diff*cz_end_diff
+            
+            # print (sumslack,dist)
+            
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
+        except:
+            return ResultData(0.,  model.Status, False, 0., None)
 
     def solve_MIP_gurobi(c, A=None, b=None, E=None, e=None, linear=False):
         
