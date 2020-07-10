@@ -304,6 +304,9 @@ def getSurfacesFromPath_mpc(rbprmBuilder, configs, surfaces_dict, num_step = 3, 
         
     res = listToArray(res)
     R = getRotationMatrixFromConfigs(configs[0:num_step]) #TEMP
+    Rp = [] #TEMP
+    for i in range(num_step): #TEMP
+        Rp += [R[0]]
         
-    return R, res
+    return Rp, res # R, res
         
