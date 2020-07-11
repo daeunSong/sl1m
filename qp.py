@@ -212,7 +212,7 @@ if GUROBI_OK:
         return cx_end_diff + cy_end_diff + cz_end_diff 
         #return cx_end_diff * cx_end_diff + cy_end_diff * cy_end_diff + cz_end
 
-    def solve_lp_gurobi_cost_pre(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):              
+    def solve_lp_gurobi_cost(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):              
         model = grb.Model("qp")
         #add continuous variables
         cVars = []
@@ -263,7 +263,58 @@ if GUROBI_OK:
         except:
             return ResultData(0.,  model.Status, False, 0., None)
 
-    def solve_lp_gurobi_cost(model, c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):
+    def solve_lp_gurobi_cost_init(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):              
+        model = grb.Model("qp")
+        #add continuous variables
+        cVars = []
+        for i in range(0,len(c)):
+            if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
+                cVars.append(model.addVar(obj = 1., vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
+            else:
+                cVars.append(model.addVar(obj = c[i], vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'slack%d' %i))
+            
+        
+        # Update model to integrate new variables
+        model.update()
+        x = array(model.getVars(), copy=False)
+        
+        # equality constraints
+        if E.shape[0] > 0:        
+            for i in range(E.shape[0]):
+                idx = [j for j, el in enumerate(E[i].tolist()) if el != 0.]
+                variables = x[idx]
+                coeff = E[i,idx]
+                expr = grb.LinExpr(coeff, variables)
+                model.addConstr(expr, grb.GRB.EQUAL, e[i])
+        model.update()
+
+        # inequality constraints
+        if A.shape[0] > 0:
+            for i in range(A.shape[0]):
+                idx = [j for j, el in enumerate(A[i].tolist()) if el != 0.]
+                variables = x[idx]
+                coeff = A[i,idx]
+                expr = grb.LinExpr(coeff, variables)
+                model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
+               
+        model.update()
+                
+        obj = grb.LinExpr(c, x) 
+        if linear:
+            obj += cost_(x, nVarEnd, goal) * weight
+        else:
+            obj += cost(x, nVarEnd, goal) * weight
+                    
+        model.setObjective(obj,grb.GRB.MINIMIZE)     
+        model.optimize()
+        try:
+            res = [el.x for el in cVars]
+
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
+        except:
+            return ResultData(0.,  model.Status, False, 0., None)
+
+    def solve_lp_gurobi_cost_iter(model, c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):
         
         cVars = []
         x = array(model.getVars(), copy=False)        
@@ -458,9 +509,9 @@ if GUROBI_OK:
         model.optimize()        
         try:
             res = [el.x for el in cVars]
-            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
-            return ResultData(0.,  model.Status, False, 0.)   
+            return ResultData(0.,  model.Status, False, 0., model)   
 
 if __name__ == '__main__':
         
