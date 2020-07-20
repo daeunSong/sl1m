@@ -1,4 +1,4 @@
-from numpy import arange, array
+from numpy import arange, array, arccos
 from narrow_convex_hull import getSurfaceExtremumPoints, removeDuplicates, normal, area
 from tools.display_tools import displaySurfaceFromPoints
 from pinocchio import XYZQUATToSe3
@@ -70,9 +70,18 @@ def getRotationMatrixFromConfigs(configs) :
     #return [array(XYZQUATToSe3(config[0:7]).rotation) for config in configs]
   R = []
   for config in configs:
-    q_rot = config[3:7]
+    # q_rot = config[3:7]
+    q_rot = [0,0,0,1]
     R.append(array(XYZQUATToSe3([0,0,0]+q_rot).rotation))
   return R
+
+def angleBtwQuats (q1, q2):
+  q1 = array(q1); q2 = array(q2)
+  inner = q1.dot(q2)
+  theta = arccos(inner)
+
+  if inner < 0: theta = np.pi-theta
+  return theta    
     
 # get contacted surface names at configuration
 def getContactsNames(rbprmBuilder,i,q):
