@@ -63,9 +63,9 @@ def quadprog_solve_qp(P, q, G=None, h=None, C=None, d=None, verbose = False):
         meq = 0 
     try:
         res = quadprog.solve_qp(qp_G, qp_a, qp_C, qp_b, meq)
-        return ResultData(res[0],  'opt', True, res[1])
+        return ResultData(res[0], 'opt', True, res[1], None)
     except:
-        return ResultData(None,  'unfeasible', False, 0.)
+        return ResultData(None,  'unfeasible', False, 0., None)
         
 
 
@@ -83,7 +83,7 @@ def solve_least_square(A,b,G=None, h=None, C=None, d=None):
 #subject to  C x  = d
 def solve_lp(q, G=None, h=None, C=None, d=None): 
     res = linprog(q, A_ub=G, b_ub=h, A_eq=C, b_eq=d, bounds=[(-100000.,10000.) for _ in range(q.shape[0])], method='interior-point', callback=None, options={'presolve': True})
-    return ResultData(res['x'],  res['status'], res['success'], res['fun'])
+    return ResultData(res['x'],  res['status'], res['success'], res['fun'], None)
         
 if GLPK_OK:    
     
@@ -141,7 +141,7 @@ if GLPK_OK:
         t1 = clock()
         lp.simplex()
         t2 = clock()
-        return ResultData(array([c.primal for c in lp.cols]), lp.status, lp.status == "opt", lp.obj.value)
+        return ResultData(array([c.primal for c in lp.cols]), lp.status, lp.status == "opt", lp.obj.value, None)
 
 
 if GUROBI_OK:  
@@ -184,15 +184,35 @@ if GUROBI_OK:
                 expr = grb.LinExpr(coeff, variables)
                 model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
                 
-        
-            
-        model.modelSense = grb.GRB.MINIMIZE
+        obj = grb.LinExpr(c, x)                    
+        model.setObjective(obj,grb.GRB.MINIMIZE)     
         model.optimize()
         try:
             res = [el.x for el in cVars]
-            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
-            return ResultData(0.,  model.Status, False, 0.)
+            return ResultData(0.,  model.Status, False, 0., None)
+
+    def solve_lp_gurobi_iter(model, c, A=None, b=None, E=None, e=None):
+        
+        cVars = []
+        x = array(model.getVars(), copy=False)    
+        #update variables
+        for i in range(len(c)):
+            x[i].setAttr(grb.GRB.Attr.Obj, c[i])
+            cVars.append(x[i])
+
+        model.update()
+
+        obj = grb.LinExpr(c, x)                    
+        model.setObjective(obj,grb.GRB.MINIMIZE)     
+        model.optimize()
+                
+        try:
+            res = [el.x for el in cVars]
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
+        except:
+            return ResultData(0.,  model.Status, False, 0., None)
         
     def cost(cVars, nVarEnd, goal):
         #print len(cVars), nVarEnd
@@ -216,7 +236,7 @@ if GUROBI_OK:
         model = grb.Model("qp")
         #add continuous variables
         cVars = []
-        for i in range(0,len(c)):
+        for i in range(len(c)):
             if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
                 cVars.append(model.addVar(obj = 1., vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
             else:
@@ -258,58 +278,6 @@ if GUROBI_OK:
         model.optimize()
         try:
             res = [el.x for el in cVars]
-
-            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
-        except:
-            return ResultData(0.,  model.Status, False, 0., None)
-
-    def solve_lp_gurobi_cost_init(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, weight=0., linear=False):              
-        model = grb.Model("qp")
-        #add continuous variables
-        cVars = []
-        for i in range(0,len(c)):
-            if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
-                cVars.append(model.addVar(obj = 1., vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
-            else:
-                cVars.append(model.addVar(obj = c[i], vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'slack%d' %i))
-            
-        
-        # Update model to integrate new variables
-        model.update()
-        x = array(model.getVars(), copy=False)
-        
-        # equality constraints
-        if E.shape[0] > 0:        
-            for i in range(E.shape[0]):
-                idx = [j for j, el in enumerate(E[i].tolist()) if el != 0.]
-                variables = x[idx]
-                coeff = E[i,idx]
-                expr = grb.LinExpr(coeff, variables)
-                model.addConstr(expr, grb.GRB.EQUAL, e[i])
-        model.update()
-
-        # inequality constraints
-        if A.shape[0] > 0:
-            for i in range(A.shape[0]):
-                idx = [j for j, el in enumerate(A[i].tolist()) if el != 0.]
-                variables = x[idx]
-                coeff = A[i,idx]
-                expr = grb.LinExpr(coeff, variables)
-                model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
-               
-        model.update()
-                
-        obj = grb.LinExpr(c, x) 
-        if linear:
-            obj += cost_(x, nVarEnd, goal) * weight
-        else:
-            obj += cost(x, nVarEnd, goal) * weight
-                    
-        model.setObjective(obj,grb.GRB.MINIMIZE)     
-        model.optimize()
-        try:
-            res = [el.x for el in cVars]
-
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
             return ResultData(0.,  model.Status, False, 0., None)
@@ -318,8 +286,8 @@ if GUROBI_OK:
         
         cVars = []
         x = array(model.getVars(), copy=False)        
-        #modify variables
-        for i in range(0,len(c)):
+        #update variables
+        for i in range(len(c)):
             if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
                 x[i].setAttr(grb.GRB.Attr.Obj, 1.)
             else:
@@ -338,24 +306,12 @@ if GUROBI_OK:
         model.optimize()
 
         try:
-            res = [el.x for el in cVars]
-            
-            # sumslack = 0
-            # for i,cc in enumerate(c):
-            #     sumslack += cc*res[i]
-            # cx_end_diff = goal[0] - res[-nVarEnd]
-            # cy_end_diff = goal[1] - res[-nVarEnd+1]
-            # cz_end_diff = goal[2] - res[-nVarEnd+2]
-            # if linear:  dist = cx_end_diff + cy_end_diff + cz_end_diff
-            # else:       dist = cx_end_diff*cx_end_diff + cy_end_diff*cy_end_diff + cz_end_diff*cz_end_diff
-            
-            # print (sumslack,dist)
-            
+            res = [el.x for el in cVars]            
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
             return ResultData(0.,  model.Status, False, 0., None)
 
-    def solve_MIP_gurobi(c, A=None, b=None, E=None, e=None, linear=False):
+    def solve_MIP_gurobi(c, A=None, b=None, E=None, e=None, wslack=False):
         
         model = grb.Model("mip")
         
@@ -393,7 +349,7 @@ if GUROBI_OK:
         numSlackVariables = len([el for el in c if el > 0])
         
         bVars = [] # boolean vars
-        for i in range(0, numSlackVariables):
+        for i in range(numSlackVariables):
             bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
         
         model.update()        
@@ -420,18 +376,18 @@ if GUROBI_OK:
             expr = grb.LinExpr(ones(len(variables)), variables)
             model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
         model.update() 
-
-        expr = grb.LinExpr(ones(numSlackVariables), y)
-        model.setObjective(expr,grb.GRB.MINIMIZE)
+        if wslack:
+            expr = grb.LinExpr(ones(numSlackVariables), y)
+            model.setObjective(expr,grb.GRB.MINIMIZE)
         model.optimize()        
         try:
             res = [el.x for el in cVars]
-            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal)
+            return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
-            return ResultData(0.,  model.Status, False, 0.)
+            return ResultData(0.,  model.Status, False, 0., None)
 
     
-    def solve_MIP_gurobi_cost(c, nVarEnd, goal, A=None, b=None, E=None, e=None, linear=False):
+    def solve_MIP_gurobi_cost(c, A=None, b=None, E=None, e=None, nVarEnd=None, goal=None, wslack= False, linear=False):
         
         model = grb.Model("mip")
         
@@ -439,7 +395,7 @@ if GUROBI_OK:
         
         #add continuous variables
         cVars = []
-        for i in range(0,len(c)):
+        for i in range(len(c)):
             if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
                 cVars.append(model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
             else:
@@ -473,7 +429,7 @@ if GUROBI_OK:
         numSlackVariables = len([el for el in c if el > 0])
         
         bVars = [] # boolean vars
-        for i in range(0, numSlackVariables):
+        for i in range(numSlackVariables):
             bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
         
         model.update()        
@@ -505,13 +461,17 @@ if GUROBI_OK:
             expr = cost_(x, nVarEnd, goal)
         else:
             expr = cost(x, nVarEnd, goal)
+
+        if wslack:
+            expr += grb.LinExpr(ones(numSlackVariables), y)
+        
         model.setObjective(expr,grb.GRB.MINIMIZE)
         model.optimize()        
         try:
             res = [el.x for el in cVars]
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, model)
         except:
-            return ResultData(0.,  model.Status, False, 0., model)   
+            return ResultData(0.,  model.Status, False, 0., None)  
 
 if __name__ == '__main__':
         
