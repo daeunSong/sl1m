@@ -319,11 +319,16 @@ if GUROBI_OK:
         
         cVars = []
         for el in (c):
-            cVars.append(model.addVar(obj = el, vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x'))
+            if el > 0:
+                cVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'slack'))
+            else:
+                cVars.append(model.addVar(obj = el, vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x'))
+        #     cVars.append(model.addVar(obj = el, vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x'))
         
         # Update model to integrate new variables
         model.update()              
         x = array(model.getVars(), copy=False)
+        y = array([el for el in model.getVars() if el.varName == 'slack'], copy=False)
         
         # inequality constraints
         if A.shape[0] > 0:
@@ -348,17 +353,17 @@ if GUROBI_OK:
         slackIndices = [i for i,el in enumerate (c) if el > 0]
         numSlackVariables = len([el for el in c if el > 0])
         
-        bVars = [] # boolean vars
-        for i in range(numSlackVariables):
-            bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
+        # bVars = [] # boolean vars
+        # for i in range(numSlackVariables):
+        #     bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
         
-        model.update()        
-        y = array([el for el in model.getVars() if el.varName == 'y'], copy=False)
+        # model.update()        
+        # y = array([el for el in model.getVars() if el.varName == 'y'], copy=False)
         
-        # inequality
-        for i, el in enumerate(slackIndices):
-            expr = grb.LinExpr([(1.0,x[el]),(-100.,y[i])])
-            model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
+        # # inequality
+        # for i, el in enumerate(slackIndices):
+        #     expr = grb.LinExpr([(1.0,x[el]),(-100.,y[i])])
+        #     model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
             
         # equality
         variables = []
@@ -376,6 +381,7 @@ if GUROBI_OK:
             expr = grb.LinExpr(ones(len(variables)), variables)
             model.addConstr(expr, grb.GRB.EQUAL, len(variables) -1)
         model.update() 
+
         if wslack:
             expr = grb.LinExpr(ones(numSlackVariables), y)
             model.setObjective(expr,grb.GRB.MINIMIZE)
@@ -395,15 +401,18 @@ if GUROBI_OK:
         
         #add continuous variables
         cVars = []
-        for i in range(len(c)):
+        for i, el in enumerate(c):
             if i == len(c)-nVarEnd or i == len(c)-nVarEnd+1 or i == len(c)-nVarEnd+2:
-                cVars.append(model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'c%d' %i))
+                cVars.append(model.addVar(obj = 1., vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x%d' %i))
+            elif el > 0:
+                cVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'slack'))
             else:
-                cVars.append(model.addVar(obj = c[i], vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'slack%d' %i))
+                cVars.append(model.addVar(obj = c[i], vtype=grb.GRB.CONTINUOUS, lb = -grb.GRB.INFINITY, ub = grb.GRB.INFINITY, name = 'x%d' %i))
              
         # Update model to integrate new variables
         model.update()              
         x = array(model.getVars(), copy=False)
+        y = array([el for el in model.getVars() if el.varName == 'slack'], copy=False)
         
         # inequality constraints
         if A.shape[0] > 0:
@@ -428,17 +437,17 @@ if GUROBI_OK:
         slackIndices = [i for i,el in enumerate (c) if el > 0]
         numSlackVariables = len([el for el in c if el > 0])
         
-        bVars = [] # boolean vars
-        for i in range(numSlackVariables):
-            bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
+        # bVars = [] # boolean vars
+        # for i in range(numSlackVariables):
+        #     bVars.append(model.addVar(lb=0, ub=1, vtype=grb.GRB.BINARY, name = 'y'))
         
-        model.update()        
-        y = array([el for el in model.getVars() if el.varName == 'y'], copy=False)
+        # model.update()        
+        # y = array([el for el in model.getVars() if el.varName == 'y'], copy=False)
         
-        # inequality
-        for i, el in enumerate(slackIndices):
-            expr = grb.LinExpr([(1.0,x[el]),(-100.,y[i])])
-            model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
+        # # inequality
+        # for i, el in enumerate(slackIndices):
+        #     expr = grb.LinExpr([(1.0,x[el]),(-100.,y[i])])
+        #     model.addConstr(expr, grb.GRB.LESS_EQUAL, 0)
             
         # equality
         variables = []

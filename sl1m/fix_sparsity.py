@@ -665,7 +665,6 @@ def solveMIP(pb, surfaces, MIP = True, draw_scene = None, plot = True, cpp=False
        
     A, b, E, e = pl1.convertProblemToLp(pb)   
     c = pl1.slackSelectionMatrix(pb)  
-    nVarEnd = pl1.numVariablesForPhase(pb["phaseData"][-1])
 
     if cpp:
         A = A.tolist()
