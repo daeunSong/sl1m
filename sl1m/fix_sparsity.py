@@ -39,30 +39,36 @@ class ProblemData:
 ############### L1-norm minimization SOLVER ###############
 ###########################################################
 
-def convertToList (A,b,E,e,c):
-    return A.tolist(), b.tolist(), E.tolist(), e.tolist(), c.tolist()
+def convertToList (C,c,A,b,E,e):
+    return C.tolist(), c.tolist(), A.tolist(), b.tolist(), E.tolist(), e.tolist()
 
-def callSolver (C,c,A,b,E,e, CPP = False, SOLVER = 0):
+def callSolver (C,c,A,b,E,e, CPP = False, SOLVER = 0, OPT = False):
 
     if CPP and SOLVER !=2:
-        A,b,E,e,c = convertToList(A,b,E,e,c)
+        C,c,A,b,E,e = convertToList(C,c,A,b,E,e)
 
-    if SOLVER == 0: # GUROBI
+    if OPT:
         if CPP:
-            res = qpp.solveLP(c,A,b,E,e)
+            res = qpp.solveQP(C,c,A,b,E,e)
         else:
-            res = qp.solve_lp_gurobi(c,A,b,E,e)
-    elif SOLVER == 1: # GLPK
-        if CPP:
-            res =  qpp.solveglpk(c,A,b,E,e)
-        else:
-            res = qp.solve_lp_glpk(c,A,b,E,e)
-    elif SOLVER == 2: # GLPK
-        if CPP:
-            print ("GLPK is only supported in Python")
-            print ("Solve Problem in Python ..")
-            CPP = False
-        res = qp.quadprog_solve_qp(C,c,A,b,E,e)
+            res = qp.solve_qp_gurobi(C,c,A,b,E,e)
+    else:
+        if SOLVER == 0: # GUROBI
+            if CPP:
+                res = qpp.solveLP(c,A,b,E,e)
+            else:
+                res = qp.solve_lp_gurobi(c,A,b,E,e)
+        elif SOLVER == 1: # GLPK
+            if CPP:
+                res =  qpp.solveglpk(c,A,b,E,e)
+            else:
+                res = qp.solve_lp_glpk(c,A,b,E,e)
+        elif SOLVER == 2: # GLPK
+            if CPP:
+                print ("GLPK is only supported in Python")
+                print ("Solve Problem in Python ..")
+                CPP = False
+            res = qp.quadprog_solve_qp(C,c,A,b,E,e)
     return res
 
 EPS_ = 0.01
@@ -79,8 +85,8 @@ def solve(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 0,
     c = zeros(A.shape[1])
 
     # res = qpp.solveLP(c,A,b,E,e)
-    res = qp.solve_qp_gurobi(C,c,A,b,E,e)
-    # res = callSolver(C,c,A,b,E,e,CPP,SOLVER)
+    # res = qp.solve_qp_gurobi(C,c,A,b,E,e)
+    res = callSolver(C,c,A,b,E,e,CPP,SOLVER,True)
     time += res.time
 
     if res.success:
@@ -146,9 +152,9 @@ def solveL1Reweighted(pb, surfaces, draw_scene = None, plot = True, CPP = False,
             if solutionIndices is not None:
                 for i, idx in enumerate(solutionIndices):
                     pb["phaseData"][idx]["S"] = [surfaces[idx][solutionComb[i]]]
-            import pickle
-            with open("pb", 'wb') as f:
-                pickle.dump(pb, f)
+            # import pickle
+            # with open("pb", 'wb') as f:
+            #     pickle.dump(pb, f)
 
         # if OPT:
             # return solve(pb, surfaces, draw_scene, plot, CPP, SOLVER, time)
@@ -196,10 +202,8 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 
             if res.success:
                 res = res.x
                 ok = pl1.isSparsityFixed(pbComb, res)
-
-                # ~ print ok
-                if ok:       
-
+                print (ok)
+                if ok:
                     # coms, footpos, allfeetpos = pl1.retrieve_points_from_res(pbComb, res)
                     pb = pbComb
                     solutionIndices = indices[:]
@@ -246,13 +250,18 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 
 
 ######################### gurobi ##########################
 
-def solveMIP(pb, surfaces, draw_scene = None, plot = True, CPP = False):
+def solveMIP(pb, surfaces, draw_scene = None, plot = True, CPP = False, OPT = False):
     A, b, E, e = pl1.convertProblemToLp(pb, SLACK_SCALE=10.)
     c = pl1.slackSelectionMatrix(pb)
+    C = identity(A.shape[1])
 
     if CPP:
-        A,b,E,e,c = convertToList(A,b,E,e,c)
-        res = qpp.solveMIP(c,A,b,E,e)
+        C,c,A,b,E,e = convertToList(C,c,A,b,E,e)
+        if OPT:
+            print ("QP")
+            res = qpp.solveMIP_QP(C,c,A,b,E,e)
+        else:
+            res = qpp.solveMIP(c,A,b,E,e)
     else:
         res = qp.solve_MIP_gurobi(c,A,b,E,e)
     time = res.time
@@ -273,6 +282,7 @@ def solveMIP(pb, surfaces, draw_scene = None, plot = True, CPP = False):
 def solveMIP_cost(pb, surfaces, goal,draw_scene = None, plot = True, CPP = False):
     A, b, E, e = pl1.convertProblemToLp(pb, SLACK_SCALE=10.)
     c = pl1.slackSelectionMatrix(pb)
+    C = identity(A.shape[1])
 
     index = 0
     for i, phase in enumerate(pb["phaseData"]):
@@ -283,7 +293,7 @@ def solveMIP_cost(pb, surfaces, goal,draw_scene = None, plot = True, CPP = False
             index += 2 * len(phase["S"])
 
     if CPP:
-        A,b,E,e,c = convertToList(A,b,E,e,c)
+        C,c,A,b,E,e = convertToList(C,c,A,b,E,e)
         res = qpp.solveMIP_cost(c,A,b,E,e,goal,index)
     else:
         res = qp.solve_MIP_gurobi(c,A,b,E,e)
