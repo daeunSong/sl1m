@@ -132,7 +132,7 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init, q_end, z_offset = 0.):
         ee_name = dict_limb_joint[limbs_names[(pid)%2]]
         phase_data = pb["phaseData"][pid+off-1] # +1 because the for loop start at id = 1
         placement = placement_from_sl1m(ee_name, pos, phase_data)
-        cs.moveEffectorToPlacement(ee_name, placement)
+        cs.moveEffectorToPlacement(ee_name, placement) 
         # if not switch:
         #    raise RuntimeError("No contact changes between two adjacent phases in SL1M output")
         # assign com position to the last two phases :
