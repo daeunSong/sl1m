@@ -2,7 +2,7 @@ from multicontact_api import ContactSequence, ContactPhase, ContactPatch
 from pinocchio import SE3, Quaternion
 import numpy as np
 from numpy.linalg import norm
-from mlp.utils.cs_tools import addPhaseFromConfig
+# from mlp.utils.cs_tools import addPhaseFromConfig, generateConfigFromPhase
 
 # Hardcoded data for solo !
 rLegId = 'talos_rleg_rom'
@@ -79,14 +79,16 @@ def placement_from_sl1m(ee_name, pos, phase_data):
     placement.translation = pos
     # compute orientation of the contact from the surface normal:
     n = normal_from_ineq(phase_data["S"][0])
+    foot_ori = rotationFromNormal(n)
+    root_yaw_ori = phase_data["rootOrientation"]
     # n = np.array([0,0,1])
-    placement.rotation = rotationFromNormal(n)
+    placement.rotation = np.dot(root_yaw_ori,foot_ori)
     print("new contact placement : ", placement)
-    # TODO add yaw rotation from guide here !
+
     return placement
 
 
-def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init):
+def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init, q_end, z_offset = 0.):
     # init contact sequence with first phase : q_ref move at the right root pose and with both feet in contact
     # FIXME : allow to customize that first phase
     num_steps = len(pb["phaseData"]) - 1 # number of contact repositionning
@@ -101,14 +103,21 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init):
     #     ee_name = dict_limb_joint[limbs_names[k]]
     #     cp_init.addContact(ee_name, ContactPatch(placement_from_sl1m(ee_name, pos, phase_data)))
     # cs.append(cp_init)
-    # addPhaseFromConfig(fb, cs, q_init, limbs_names)
+    # ~ cs.addPhaseFromConfig(fb, cs, q_init, limbs_names
+    # ~ cs.addPhaseFromConfig(fb, cs, q_init, limbs_names)
+    # ~ q_init[2]+= z_offset
+    # ~ state = generateConfigFromPhase(fb, c_phase, projectCOM=True )
+    addPhaseFromConfig(fb, cs, q_init, [fb.rLegId, fb.lLegId])
+    # ~ addPhaseFromConfig(fb, cs, state.q(), limbs_names, t_init = -1)
+    # ~ generateConfigFromPhase(fb, cp, projectCOM=False)
     # cp_init.q_init = generateConfigFromPhase(fb, cs.contactPhases[0])
     # print("Initial phase added, contacts : ", cs.contactPhases[0].effectorsInContact())
     # loop for all effector placements, and create the required contact phases
     # previous_eff_placements = allfeetpos[0]
     # if len(previous_eff_placements) != num_effectors:
     #     raise NotImplementedError("A phase in the output of SL1M do not have all the effectors in contact.")
-    for pid, eff_placements in enumerate(allfeetpos[1:]):
+    off = 2
+    for pid, eff_placements in enumerate(allfeetpos[off:]):
         print("Loop allfeetpos, id = ", pid)
         # if len(eff_placements) != num_effectors:
         #     raise NotImplementedError("A phase in the output of SL1M do not have all the effectors in contact.")
@@ -119,10 +128,11 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init):
         #             raise NotImplementedError("Several contact changes between two adjacent phases in SL1M output")
         # switch = True
         pos = eff_placements#[(pid)%2]
+        pos[2]+=z_offset
         ee_name = dict_limb_joint[limbs_names[(pid)%2]]
-        phase_data = pb["phaseData"][pid+1] # +1 because the for loop start at id = 1
+        phase_data = pb["phaseData"][pid+off-1] # +1 because the for loop start at id = 1
         placement = placement_from_sl1m(ee_name, pos, phase_data)
-        cs.moveEffectorToPlacement(ee_name, placement)
+        cs.moveEffectorToPlacement(ee_name, placement) 
         # if not switch:
         #    raise RuntimeError("No contact changes between two adjacent phases in SL1M output")
         # assign com position to the last two phases :
