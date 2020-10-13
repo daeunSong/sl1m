@@ -3,9 +3,9 @@
 ############### Problem definition #############
 
 from sl1m.problem_definition import *
-           
-        
-#### constraint specification ####  
+
+
+#### constraint specification ####
 
 DEFAULT_NUM_VARS = 4
 # SLACK_SCALE = 1.
@@ -15,7 +15,7 @@ THRESHOLD = 0.003
 #so vars are x, y, z, zcom, a0, a1
 #extra constraints are a1 - a0 <= 0 ; -a1 - a0 <=  0;  a0 >= 0, a0 >=0 is implied by the first 2
 NUM_SLACK_PER_SURFACE = 2
-NUM_INEQ_SLACK_PER_SURFACE = 2 # 
+NUM_INEQ_SLACK_PER_SURFACE = 2 #
 
 def numVariablesForPhase(phase):
     ret = DEFAULT_NUM_VARS
@@ -23,7 +23,7 @@ def numVariablesForPhase(phase):
     if numSurfaces > 1:
         ret += numSurfaces * NUM_SLACK_PER_SURFACE
     return ret
-    
+
 def numIneqForPhase(phase):
     #surface -one because last is equality
     ret =  sum([k.shape[0]  for (_, k) in phase["K"][0] ]) + phase["relativeK"][0][1].shape[0] + sum([S[1].shape[0]-1 for S in  phase["S"]])
@@ -31,22 +31,22 @@ def numIneqForPhase(phase):
     if numSurfaces > 1:
         ret += numSurfaces * NUM_INEQ_SLACK_PER_SURFACE
     return ret
-    
+
 def getTotalNumVariablesAndIneqConstraints(pb):
     nphases = pb["nphases"]
     cols = sum([numVariablesForPhase(phase) for phase in  pb["phaseData"]])
     rows = sum( [numIneqForPhase(phase) for  phase in pb["phaseData"] ])
     return rows, cols
-    
+
 def numEqForPhase(phase):
     return len(phase["S"])
-    
+
 def getTotalNumEqualityConstraints(pb):
     return sum( [numEqForPhase(phase) for  phase in pb["phaseData"] ])
-  
-  
-    
-#### Selection matrices ####  
+
+
+
+#### Selection matrices ####
 
 # COM position given by the first two parameters (x, y of foot) and the fourth one (height)
 def _COMExpressionMatrix():
@@ -54,32 +54,32 @@ def _COMExpressionMatrix():
     ret[:2,:2] = identity(2)
     ret[2, -1] = 1
     return ret
-    
-    
+
+
 # Foot position given by the first three parameters (x, y, z of foot)
 def _footExpressionMatrix():
     return identity(3)
-    
+
 def _footExpressionMatrixXY():
     return identity(2)
-    
+
 def _footExpressionMatrixz():
     ret =  zeros((1,3))
     ret[0,-1] =  1
     return ret
-    
+
 # z position of COM
 def _COMzmatrix():
     ret = zeros((1, DEFAULT_NUM_VARS))
     ret[-1,-1:] = [1]
     return ret
- 
+
 COMExpressionMatrix = _COMExpressionMatrix()
 footExpressionMatrix = _footExpressionMatrix()
 footExpressionMatrixz = _footExpressionMatrixz()
 footExpressionMatrixXY = _footExpressionMatrixXY()
 COMzmatrix = _COMzmatrix()
-    
+
 # com is always above foot, so we lony care about the z value
 def FixedFootCOMKinConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol):
     fixed = phaseDataT["fixed"]
@@ -87,11 +87,11 @@ def FixedFootCOMKinConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol):
     K, k = phaseDataT["K"][0][fixed]
     idRow =  K.shape[0]
     comOff = COMzmatrix.shape[1]
-    
+
     A[:idRow, startCol:startCol+comOff] = K[:,-1:].dot(COMzmatrix)
     b[:idRow                 ] = k + K[:,-1:].dot(pos[-1:])
     return idRow
-    
+
 def FixedFootCOMKinConstraintVarPhase(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     fixed = phaseDataT["fixed"]
     K, k = phaseDataT["K"][0][fixed]
@@ -100,11 +100,11 @@ def FixedFootCOMKinConstraintVarPhase(pb, phaseDataT, A, b, previousStartCol, st
     offFoot = footExpressionMatrixz.shape[1]
     A[startRow:idRow, startCol:startCol+offCOm]         =  K[:,-1:].dot(COMzmatrix)
     A[startRow:idRow, previousStartCol:previousStartCol+offFoot] = -K[:,-1:].dot(footExpressionMatrixz)
-    b[startRow:idRow                 ] = k 
-    
+    b[startRow:idRow                 ] = k
+
     return idRow
-    
-    
+
+
 def FixedFootCOMConstraint(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     if startRow == 0:
         if pb["p0"] is None:
@@ -115,11 +115,11 @@ def FixedFootCOMConstraint(pb, phaseDataT, A, b, previousStartCol, startCol, end
             return FixedFootCOMKinConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol)
     else:
         return FixedFootCOMKinConstraintVarPhase (pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow)
-        
-        
+
+
 #com position at this phase is contrained by moving foot position
 def MovingFootCOMConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol, startRow):
-    fixed = phaseDataT["fixed"] 
+    fixed = phaseDataT["fixed"]
     pos = pb["p0"][fixed]
     moving = phaseDataT["moving"]
     K, k = phaseDataT["K"][0][moving]
@@ -132,7 +132,7 @@ def MovingFootCOMConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol, sta
     return idRow
 
 
-def MovingFootCOMConstraintVarPhase(phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):    
+def MovingFootCOMConstraintVarPhase(phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     moving = phaseDataT["moving"]
     K, k = phaseDataT["K"][0][moving]
     idRow = startRow + K.shape[0]
@@ -142,9 +142,9 @@ def MovingFootCOMConstraintVarPhase(phaseDataT, A, b, previousStartCol, startCol
     A[startRow:idRow, previousStartCol:previousStartCol+offFootXY]    =  K[:,:2].dot(footExpressionMatrixXY)
     A[startRow:idRow, startCol:startCol+offCOmZ]         =  K[:,-1:].dot(COMzmatrix)
     A[startRow:idRow, startCol:startCol+offFoot] = -K.dot(footExpressionMatrix)
-    b[startRow:idRow                 ] = k 
+    b[startRow:idRow                 ] = k
     return idRow
-    
+
 def MovingFootCOMConstraint(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow, first):
     if first:
         if pb["p0"] is None:
@@ -155,8 +155,8 @@ def MovingFootCOMConstraint(pb, phaseDataT, A, b, previousStartCol, startCol, en
             return MovingFootCOMConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol, startRow)
     else:
         return MovingFootCOMConstraintVarPhase (phaseDataT, A, b, previousStartCol, startCol, endCol, startRow)
-    
-    
+
+
 def FixedFootRelativeDistanceConstraintInitPhase(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     fixed = phaseDataT["fixed"]
     K, k = phaseDataT["relativeK"][0]
@@ -167,17 +167,17 @@ def FixedFootRelativeDistanceConstraintInitPhase(pb, phaseDataT, A, b, previousS
     A[:idRow, startCol:startCol+offFoot] = K.dot(footMatrix)
     b[:idRow                 ] = k + K.dot(pos)
     return idRow + startRow
-    
+
 def FixedFootRelativeDistanceConstraintVarPhase(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     K, k = phaseDataT["relativeK"][0]
     idRow = startRow + K.shape[0]
     offFoot = footExpressionMatrix.shape[1]
     A[startRow:idRow, startCol:startCol+offFoot] = K.dot(footExpressionMatrix)
     A[startRow:idRow, previousStartCol:previousStartCol+offFoot] = -K.dot(footExpressionMatrix)
-    b[startRow:idRow                 ] = k 
+    b[startRow:idRow                 ] = k
     return idRow
-    
-    
+
+
 def FixedFootConstraintRelativeDistance(pb, phaseDataT, A, b, previousCol, startCol, endCol, startRow, first):
     if first:
         if True:
@@ -187,13 +187,13 @@ def FixedFootConstraintRelativeDistance(pb, phaseDataT, A, b, previousCol, start
             return FixedFootRelativeDistanceConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol, startRow)
     else:
         return FixedFootRelativeDistanceConstraintVarPhase (pb, phaseDataT, A, b, previousCol, startCol, endCol, startRow)
-        
-    
+
+
 def SurfaceConstraint(phaseDataT, A, b, startCol, endCol, startRow, SLACK_SCALE):
     sRow = startRow
     nSurfaces = len(phaseDataT["S"])
     idS = DEFAULT_NUM_VARS
-    for (S,s,_) in phaseDataT["S"]:   
+    for (S,s,_) in phaseDataT["S"]:
         idRow = sRow + S.shape[0]-1
         A[sRow:idRow, startCol:startCol+footExpressionMatrix.shape[1]] = S[:-1,:].dot(footExpressionMatrix)
         b[sRow:idRow                 ] = s[:-1]
@@ -202,8 +202,8 @@ def SurfaceConstraint(phaseDataT, A, b, startCol, endCol, startRow, SLACK_SCALE)
         sRow = idRow
         idS += NUM_SLACK_PER_SURFACE
     return idRow
-    
-def SlackPositivityConstraint(phaseDataT, A, b, startCol, endCol, startRow):    
+
+def SlackPositivityConstraint(phaseDataT, A, b, startCol, endCol, startRow):
     numSurfaces =len(phaseDataT["S"])
     idRow = startRow
     if numSurfaces > 1:
@@ -213,10 +213,10 @@ def SlackPositivityConstraint(phaseDataT, A, b, startCol, endCol, startRow):
             col = (int) (startCol+varOffset + i / NUM_INEQ_SLACK_PER_SURFACE * NUM_SLACK_PER_SURFACE)
             A[row  , col:col+2] = [-1,  1];  #  - a0 + a1  <= 0
             A[row+1, col:col+2] = [-1, -1];  # -a0 - a1 <= 0
-            idRow = row + NUM_INEQ_SLACK_PER_SURFACE       
+            idRow = row + NUM_INEQ_SLACK_PER_SURFACE
     return idRow
-    
-def EqualityConstraint(phaseDataT, E, e, startCol, endCol, startRowEq, SLACK_SCALE):    
+
+def EqualityConstraint(phaseDataT, E, e, startCol, endCol, startRowEq, SLACK_SCALE):
     sRow = startRowEq
     nSurfaces = len(phaseDataT["S"])
     if nSurfaces == 1:
@@ -225,16 +225,16 @@ def EqualityConstraint(phaseDataT, E, e, startCol, endCol, startRowEq, SLACK_SCA
         return sRow+1
     else:
         idS = DEFAULT_NUM_VARS
-        for (S,s,_) in phaseDataT["S"]:   
+        for (S,s,_) in phaseDataT["S"]:
             E[sRow, startCol:startCol+footExpressionMatrix.shape[1]] = S[-1,:].dot(footExpressionMatrix)
             #~ E[sRow, startCol+idS+1] = -1 # E x  + a1 = e
             E[sRow, startCol+idS+1] = -1 * SLACK_SCALE # E x  + a1 = e
             e[sRow] = s[-1]
             idS += NUM_SLACK_PER_SURFACE
             sRow += 1
-        return sRow 
-    
-def convertProblemToLp(pb, convertSurfaces = True, SLACK_SCALE=1.):    
+        return sRow
+
+def convertProblemToLp(pb, convertSurfaces = True, SLACK_SCALE=1.):
     if convertSurfaces:
         replace_surfaces_with_ineq_in_problem(pb)
     #define first problem
@@ -244,33 +244,33 @@ def convertProblemToLp(pb, convertSurfaces = True, SLACK_SCALE=1.):
     #E u = b
     nEq = getTotalNumEqualityConstraints(pb)
     E = zeros((nEq, nvars)); e = zeros(nEq)
-    
+
     startRow = 0;
     startRowEq = 0;
     startCol = 0;
     previousStartCol = 0;
     endCol   = 0;
     #~ fixedFootMatrix = None;
-    
-    for i, phaseDataT in enumerate(pb["phaseData"]):   
+
+    for i, phaseDataT in enumerate(pb["phaseData"]):
         #inequality
         endCol = startCol + numVariablesForPhase(phaseDataT)
-        startRow = FixedFootCOMConstraint (pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow) 
-        startRow = FixedFootConstraintRelativeDistance (pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow, first = i == 0) 
+        startRow = FixedFootCOMConstraint (pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow)
+        startRow = FixedFootConstraintRelativeDistance (pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow, first = i == 0)
         startRow = MovingFootCOMConstraint(pb,phaseDataT, A, b, previousStartCol, startCol, endCol, startRow, first = i == 0)
         startRow = SurfaceConstraint(phaseDataT, A, b, startCol, endCol, startRow, SLACK_SCALE)
         startRow = SlackPositivityConstraint(phaseDataT, A, b, startCol, endCol, startRow)
         startRowEq = EqualityConstraint(phaseDataT, E, e, startCol, endCol, startRowEq, SLACK_SCALE)
         previousStartCol = startCol
-        startCol   = endCol 
-    
+        startCol   = endCol
+
     assert startRowEq == E.shape[0]
     assert startRow   == A.shape[0]
-    
+
     A,b = normalize([A,b])
     E,e = normalize([E,e])
     return (A,b,E,e)
-        
+
 def slackSelectionMatrix(pb):
     nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
     c = zeros(nvars)
@@ -284,41 +284,41 @@ def slackSelectionMatrix(pb):
         cIdx += phaseVars
     assert cIdx == nvars
     return c
-    
+
 def num_non_zeros(pb, res):
     # nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
     indices = []
     cIdx = 0
     wrongsurfaces = []
     wrongsurfaces_indices = []
-    for i, phase in enumerate(pb["phaseData"]):  
+    for i, phase in enumerate(pb["phaseData"]):
         numSurfaces = len(phase["S"])
         phaseVars = numVariablesForPhase(phase)
         if numSurfaces > 1:
             startIdx = cIdx + DEFAULT_NUM_VARS
             betas = [res[startIdx+j] for j in range(0,numSurfaces*2,2) ]
             if array(betas).min() > THRESHOLD:
-                # ~ print "wrong ", i, sorted(betas)
+                print ("wrong ", i, sorted(betas))
                 indices += [i]
                 sorted_surfaces = np.argsort(betas)
                 wrongsurfaces_indices += [sorted_surfaces]
                 wrongsurfaces += [[[phase["S"][idx]] for idx in sorted_surfaces]  ]
         cIdx += phaseVars
     return indices, wrongsurfaces, wrongsurfaces_indices
-    
+
 def isSparsityFixed(pb, res):
     indices, wrongsurfaces, wrongsurfaces_indices = num_non_zeros(pb, res)
     return len(indices) == 0
-   
+
 def genOneComb(pb,indices, surfaces, res):
     pb1 = pb.copy()
     for i, idx in enumerate(indices):
         pb1["phaseData"][idx]["S"] = surfaces[i][0]
     res += [pb1]
-   
+
 import itertools
 import copy
-   
+
 def genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res):
     # lenss  = [len(surfs) for surfs in wrongsurfaces]
     all_indexes = [[el for el in range(lens)]  for lens in [len(surfs) for surfs in wrongsurfaces]]
@@ -337,14 +337,14 @@ def genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res):
         for i, idx in enumerate(indices):
             pb1["phaseData"][idx]["S"] = wrongsurfaces[i][comb[i]]
         res += [[pb1, wrong_combs[j], indices]]
-    
-    
+
+
 def generateAllFixedScenariosWithFixedSparsity(pb, res):
     indices, wrongsurfaces, wrongsurfaces_indices = num_non_zeros(pb, res)
     all_len = [len(surfs) for surfs in wrongsurfaces]
     comb = 1
     for el in all_len:
-        comb *= el  
+        comb *= el
     res = []
     if comb >2000:
         # print("problem probably too big ", comb)
@@ -358,7 +358,7 @@ def bestSelectedSurfaces(pb, res):
     indices  = []
     cIdx = 0
     nvars = getTotalNumVariablesAndIneqConstraints(pb)[1]
-    for i, phase in enumerate(pb["phaseData"]):  
+    for i, phase in enumerate(pb["phaseData"]):
         numSurfaces = len(phase["S"])
         phaseVars = numVariablesForPhase(phase)
         if numSurfaces == 1:
@@ -378,7 +378,7 @@ def bestSelectedSurfaces(pb, res):
 
 
 ###########################" PLOTTING ################"
-    
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
@@ -386,16 +386,16 @@ def retrieve_points_from_res(pb, res):
     coms = []
     if pb["c0"] is not None:
         coms = [pb["c0"]]
-        
+
     if pb["p0"] is not None:
         footPos = [[pb["p0"][LF]],[pb["p0"][RF]]]
         allFeetPos = [footPos[0][0], footPos[1][0]]
     else:
         footPos = [[],[]]
         allFeetPos = []
-        
+
     col = 0
-    for i, phaseDataT in enumerate(pb["phaseData"]):  
+    for i, phaseDataT in enumerate(pb["phaseData"]):
         moving = phaseDataT["moving"]
         fixed = phaseDataT["fixed"]
         pos = footExpressionMatrix.dot(res[col:col + footExpressionMatrix.shape[1]])
@@ -411,30 +411,30 @@ def retrieve_points_from_res(pb, res):
         allFeetPos += [pos]
         col += numVariablesForPhase(phaseDataT)
     return coms, footPos, allFeetPos
-    
-    
+
+
 def plotPoints(ax, wps, color = "b", D3 = True, linewidth=2):
     x = array(wps)[:,0]
     y = array(wps)[:,1]
-    if(D3):                
+    if(D3):
             z = array(wps)[:,2]
-            ax.scatter(x, y, z, color=color, marker='o', linewidth = 5) 
+            ax.scatter(x, y, z, color=color, marker='o', linewidth = 5)
     else:
-            ax.scatter(x,y,color=color, linewidth = linewidth)  
-   
-   
+            ax.scatter(x,y,color=color, linewidth = linewidth)
+
+
 def plotConstraints(ax, pb, allfeetpos, coms):
     from tools.plot_plytopes import plot_polytope_H_rep
     for i, phase in enumerate(pb["phaseData"][:]):
         if i <1 :
             continue
-        fixed =   phase["fixed"]  
-        moving = phase["moving"]   
+        fixed =   phase["fixed"]
+        moving = phase["moving"]
         oldK, oldk = pb["phaseData"][i-1]["K"][0][fixed]
         oldK = oldK.copy()
         oldk = oldk.copy()
         oldk += oldK.dot(allfeetpos[i-1])
-        K, k = phase["K"][0][moving]  
+        K, k = phase["K"][0][moving]
         K = K.copy()
         k = k.copy()
         pos =  allfeetpos[i]
@@ -443,21 +443,21 @@ def plotConstraints(ax, pb, allfeetpos, coms):
         relK = relK.copy()
         relk = relk.copy()
         relk += relK.dot(allfeetpos[i-1])
-        
+
         k = k + K.dot(pos)
         resK = vstack([oldK,K])
-        resk = concatenate([oldk, k]).reshape((-1,)) 
+        resk = concatenate([oldk, k]).reshape((-1,))
         if True:
         #~ if i %2 ==0:
         #~ if i %2 ==1:
-            try :                
+            try :
                 #~ plot_polytope_H_rep(resK,resk.reshape((-1,1)), ax = ax)
                 plot_polytope_H_rep(relK,relk.reshape((-1,1)), ax = ax)
                 #~ plot_polytope_H_rep(K,k.reshape((-1,1)), ax = ax)
-            except: 
+            except:
                 print("qhullfailed")
-    
-        
+
+
 def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = True):
     coms, footpos, allfeetpos = retrieve_points_from_res(pb, res)
     if ax is None:
@@ -467,11 +467,11 @@ def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = 
 
     ax.set_autoscale_on(False)
     ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
-    
+
     #~ plotPoints(ax, coms, color = "b")
     plotPoints(ax, footpos[RF], color = "r")
     plotPoints(ax, footpos[LF], color = "g")
-    
+
     cx = [c[0] for c in coms]
     cy = [c[1] for c in coms]
     cz = [c[2] for c in coms]
@@ -480,57 +480,54 @@ def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = 
     py = [c[1] for c in allfeetpos]
     pz = [c[2] for c in allfeetpos]
     ax.plot(px, py, pz)
-        
+
     if show:
         plt.ion()
         plt.show()
-       
-    
+
+
 ####################### MAIN ###################"
 
 if __name__ == '__main__':
     from sl1m.stand_alone_scenarios.complex import gen_stair_pb,  draw_scene
-    pb = gen_stair_pb()    
-    
+    pb = gen_stair_pb()
+
     t1 = clock()
     A, b, E, e = convertProblemToLp(pb)
-    
+
     A,b = normalize([A,b])
     C = identity(A.shape[1]) * 0.00001
     c =  slackSelectionMatrix(pb) * 100.
     t2 = clock()
     res = qp.quadprog_solve_qp(C, c,A,b,E,e)
     t3 = clock()
-    
+
     print("time to set up problem" , timMs(t1,t2))
     print("time to solve problem"  , timMs(t2,t3))
     print("total time"             , timMs(t1,t3))
-    
+
     coms, footpos, allfeetpos = retrieve_points_from_res(pb, res)
     ax = draw_scene(None)
     plotQPRes(pb, res, ax=ax, plot_constraints = False)
-    
+
     surfaces, indices = bestSelectedSurfaces(pb, res)
-    for i, phase in enumerate(pb["phaseData"]):  
+    for i, phase in enumerate(pb["phaseData"]):
         phase["S"] = [surfaces[i]]
-        
+
     t1 = clock()
     A, b, E, e = convertProblemToLp(pb, False)
-    
-    
+
+
     C = identity(A.shape[1])
     c = zeros(A.shape[1])
     t2 = clock()
     res = qp.quadprog_solve_qp(C, c,A,b,E,e)
     t3 = clock()
-    
+
     print("time to set up problem" , timMs(t1,t2))
     print("time to solve problem"  , timMs(t2,t3))
     print("total time"             , timMs(t1,t3))
-    
+
     coms, footpos, allfeetpos = retrieve_points_from_res(pb, res)
     ax = draw_scene(None)
     plotQPRes(pb, res, ax=ax, plot_constraints = False)
-        
-    
-
