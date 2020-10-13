@@ -78,8 +78,8 @@ def placement_from_sl1m(ee_name, pos, phase_data):
     placement = SE3.Identity()
     placement.translation = pos
     # compute orientation of the contact from the surface normal:
-    # n = normal_from_ineq(phase_data["S"][0])
-    n = np.array([0,0,1])
+    n = normal_from_ineq(phase_data["S"][0])
+    # n = np.array([0,0,1])
     placement.rotation = rotationFromNormal(n)
     print("new contact placement : ", placement)
     # TODO add yaw rotation from guide here !
@@ -101,7 +101,7 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init):
     #     ee_name = dict_limb_joint[limbs_names[k]]
     #     cp_init.addContact(ee_name, ContactPatch(placement_from_sl1m(ee_name, pos, phase_data)))
     # cs.append(cp_init)
-    cs.addPhaseFromConfig(fb, cs, q_init, limbs_names)
+    # addPhaseFromConfig(fb, cs, q_init, limbs_names)
     # cp_init.q_init = generateConfigFromPhase(fb, cs.contactPhases[0])
     # print("Initial phase added, contacts : ", cs.contactPhases[0].effectorsInContact())
     # loop for all effector placements, and create the required contact phases
@@ -156,4 +156,3 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init):
     p_final.c_init = p_final.c_final
     # cs.contactPhases[-1]=p_final
     return cs
-
