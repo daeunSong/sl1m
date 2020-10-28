@@ -2,7 +2,7 @@ from multicontact_api import ContactSequence, ContactPhase, ContactPatch
 from pinocchio import SE3, Quaternion
 import numpy as np
 from numpy.linalg import norm
-# from mlp.utils.cs_tools import addPhaseFromConfig, generateConfigFromPhase
+from mlp.utils.cs_tools import addPhaseFromConfig
 
 # Hardcoded data for solo !
 rLegId = 'talos_rleg_rom'
@@ -82,7 +82,7 @@ def placement_from_sl1m(ee_name, pos, phase_data):
     foot_ori = rotationFromNormal(n)
     root_yaw_ori = phase_data["rootOrientation"]
     # n = np.array([0,0,1])
-    placement.rotation = np.dot(root_yaw_ori,foot_ori)
+    placement.rotation = np.dot(foot_ori,root_yaw_ori)
     print("new contact placement : ", placement)
 
     return placement
