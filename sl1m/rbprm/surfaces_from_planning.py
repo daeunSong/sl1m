@@ -32,7 +32,8 @@ def listToArray (seqs):
 def getRotationsFromConfigs(configs):
     R = []
     for config in configs:
-        q_rot = config[3:7]
+        q_rot = [0,0,0,1]
+        # q_rot = config[3:7]
         R.append(XYZQUATToSE3([0,0,0]+q_rot).rotation)
     return R
 
@@ -64,7 +65,7 @@ def getAllSurfacesDict (afftool) :
 
 def getSurfacesFromGuideContinuous(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useIntersection= False, pathId=None):
     if viewer :
-        from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        from hpp.corbaserver.rbprm.tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
 
     window_size = 0.5 # smaller step at which we check the colliding surfaces
     if pathId == None:
@@ -98,7 +99,7 @@ def getSurfacesFromGuideContinuous(rbprmBuilder,ps,afftool,viewer = None,step = 
         for i,contact in enumerate(phase_contacts):
             if contact != []:
                 if viewer:
-                    displaySurfaceFromPoints(viewer,contact,[0,0,1,1])
+                    displaySurfaceFromPoints(viewer,contact,[0.,0.,1.,1.])
                 if useIntersection and area(contact) > MAX_SURFACE:
                     seq.append(contact)
                 else:
@@ -131,7 +132,7 @@ def getSurfacesFromGuideContinuous(rbprmBuilder,ps,afftool,viewer = None,step = 
 
 def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useIntersection = False, pathId = None):
     if viewer :
-        from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        from hpp.corbaserver.rbprm.tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
 
     if pathId == None:
         pathId = ps.numberPaths() -1
@@ -143,11 +144,16 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
 
     # get surface information
     surfaces_dict = getAllSurfacesDict(afftool)
+    import matplotlib.pylab as plt
+    # colors = plt.cm.Dark2.colors
+    # colors = list(colors)[:-2]
+    colors = [[1.,0.,0.,0.5],[0,0.5,0,0.5]]
 
     # get surface candidate at each discretization step
     # suppose that we start with the left leg
     seqs = []
     for i, q in enumerate(configs):
+        q[3:7]=[0,0,0,1]
         seq = []
         contacts = getContactsIntersections (rbprmBuilder,i,q)
         contact_names = getContactsNames (rbprmBuilder,i,q)
@@ -156,12 +162,11 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
         for j, contact in enumerate(contacts):
             if contact != []:
                 if viewer:
-                    displaySurfaceFromPoints(viewer,contact,[0,0,1,1])
+                    displaySurfaceFromPoints(viewer,contact,colors[i%2])
                 if useIntersection and area(contact) > MAX_SURFACE:
                     seq.append(contact)
                 else:
                     seq.append(surfaces_dict[contact_names[j]][0])
-
         seqs.append(seq)
 
     # remove duplicates

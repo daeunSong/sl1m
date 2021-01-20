@@ -42,33 +42,33 @@ class ProblemData:
 def convertToList (C,c,A,b,E,e):
     return C.tolist(), c.tolist(), A.tolist(), b.tolist(), E.tolist(), e.tolist()
 
-def callSolver (C,c,A,b,E,e, CPP = False, SOLVER = 0, OPT = False):
+def getSurfNum (surfaces):
+    numsurf = []
+    for surf in surfaces:
+        numsurf += [len(surf)]
+    return numsurf
+
+def callSolver (C,c,A,b,E,e, CPP = False, SOLVER = 0):
 
     if CPP and SOLVER !=2:
         C,c,A,b,E,e = convertToList(C,c,A,b,E,e)
 
-    if OPT:
+    if SOLVER == 0: # GUROBI
         if CPP:
-            res = qpp.solveQP(C,c,A,b,E,e)
+            res = qpp.solveLP(c,A,b,E,e)
         else:
-            res = qp.solve_qp_gurobi(C,c,A,b,E,e)
-    else:
-        if SOLVER == 0: # GUROBI
-            if CPP:
-                res = qpp.solveLP(c,A,b,E,e)
-            else:
-                res = qp.solve_lp_gurobi(c,A,b,E,e)
-        elif SOLVER == 1: # GLPK
-            if CPP:
-                res =  qpp.solveglpk(c,A,b,E,e)
-            else:
-                res = qp.solve_lp_glpk(c,A,b,E,e)
-        elif SOLVER == 2: # GLPK
-            if CPP:
-                print ("GLPK is only supported in Python")
-                print ("Solve Problem in Python ..")
-                CPP = False
-            res = qp.quadprog_solve_qp(C,c,A,b,E,e)
+            res = qp.solve_lp_gurobi(c,A,b,E,e)
+    elif SOLVER == 1: # GLPK
+        if CPP:
+            res =  qpp.solveglpk(c,A,b,E,e)
+        else:
+            res = qp.solve_lp_glpk(c,A,b,E,e)
+    elif SOLVER == 2: # GLPK
+        if CPP:
+            print ("GLPK is only supported in Python")
+            print ("Solve Problem in Python ..")
+            CPP = False
+        res = qp.quadprog_solve_qp(C,c,A,b,E,e)
     return res
 
 EPS_ = 0.01
@@ -86,8 +86,15 @@ def solve(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 0,
 
     # res = qpp.solveLP(c,A,b,E,e)
     # res = qp.solve_qp_gurobi(C,c,A,b,E,e)
-    res = callSolver(C,c,A,b,E,e,CPP,SOLVER,True)
-    time += res.time
+    numsurf = []
+    for phase in pb["phaseData"]:
+        numsurf += [1]
+        # numsurf += [len(phase["S"])]
+    res = qpp.solveQP(C.tolist(),c.tolist(),A.tolist(),b.tolist(),E.tolist(),e.tolist(), numsurf)
+    # time += res.time
+    print ("Time to solve QP: ", res.time)
+    print ("Time to solve ALL: ", time+res.time)
+    time = res.time
 
     if res.success:
         res = res.x
@@ -235,8 +242,10 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 
 
         result = ProblemData(pb, True, 0, res, time)
         if OPT:
+            print ("OPT")
             return solve(pb, surfaces, draw_scene, plot, CPP, SOLVER, time)
         else:
+            print ("OPT x")
             return result
 
     # fail to fix sparisty
@@ -258,8 +267,7 @@ def solveMIP(pb, surfaces, draw_scene = None, plot = True, CPP = False, OPT = Fa
     if CPP:
         C,c,A,b,E,e = convertToList(C,c,A,b,E,e)
         if OPT:
-            print ("QP")
-            res = qpp.solveMIP_QP(C,c,A,b,E,e)
+            res = qpp.solveMIP_QP(C,c,A,b,E,e,getSurfNum(surfaces))
         else:
             res = qpp.solveMIP(c,A,b,E,e)
     else:
@@ -277,7 +285,8 @@ def solveMIP(pb, surfaces, draw_scene = None, plot = True, CPP = False, OPT = Fa
         ax = draw_scene(surfaces)
         pl1.plotQPRes(pb, res, ax=ax)
 
-    return ProblemData(pb, True, 0, res, time)
+    coms, footpos, allfeetpos = pl1.retrieve_points_from_res(pb, res)
+    return ProblemData(pb, True, 0, [coms, footpos, allfeetpos], time)
 
 def solveMIP_cost(pb, surfaces, goal,draw_scene = None, plot = True, CPP = False):
     A, b, E, e = pl1.convertProblemToLp(pb, SLACK_SCALE=10.)

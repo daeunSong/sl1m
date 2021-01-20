@@ -11,13 +11,13 @@ __eps = 0.00001
 
 # import glpk
 GLPK_OK = False
-try:
-    import glpk
-    GLPK_OK = True
-
-except ImportError:
-    print ("import error")
-    pass
+# try:
+#     import glpk
+#     GLPK_OK = True
+#
+# except ImportError:
+#     print ("import error")
+#     pass
 
 # import gurobipy
 GUROBI_OK = False
