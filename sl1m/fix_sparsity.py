@@ -108,7 +108,7 @@ def solveL1Reweighted(pb, surfaces, draw_scene = None, plot = True, CPP = False,
     c = pl1.slackSelectionMatrix(pb)
 
     res = callSolver(C,c,A,b,E,e,CPP,SOLVER)
-    print (res.time)
+    # print (res.time)
     time1 = res.time
 
     if res.success:
@@ -167,13 +167,13 @@ def solveL1Reweighted(pb, surfaces, draw_scene = None, plot = True, CPP = False,
 
 ### Calls the sl1m solver. Brute-forcedly tries to solve non fixed sparsity by handling the combinatorial.
 ### Ultimately calls solve which provides the approriate cost function
-def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 0, OPT = False):
+def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 0, OPT = True):
     A, b, E, e = pl1.convertProblemToLp(pb, SLACK_SCALE=10.)
     C = identity(A.shape[1]) * 0.00001
     c = pl1.slackSelectionMatrix(pb)
 
     res = callSolver(C,c,A,b,E,e,CPP,SOLVER)
-    print (res.time)
+    # print (res.time)
     time1 = res.time
 
     if res.success:
@@ -196,13 +196,13 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 
             c = pl1.slackSelectionMatrix(pbComb)
 
             res = callSolver(C,c,A,b,E,e,CPP,SOLVER)
-            print (res.time)
+            # print (res.time)
             timeComb += res.time
 
             if res.success:
                 res = res.x
                 ok = pl1.isSparsityFixed(pbComb, res)
-                print (ok)
+                # print (ok)
                 if ok:
                     # coms, footpos, allfeetpos = pl1.retrieve_points_from_res(pbComb, res)
                     pb = pbComb
@@ -229,9 +229,6 @@ def solveL1(pb, surfaces, draw_scene = None, plot = True, CPP = False, SOLVER = 
         if solutionIndices is not None:
             for i, idx in enumerate(solutionIndices):
                 pb["phaseData"][idx]["S"] = [surfaces[idx][solutionComb[i]]]
-        import pickle
-        with open("sl1m_data/pb", 'wb') as f:
-            pickle.dump(pb, f)
 
         result = ProblemData(pb, True, 0, res, time)
         if OPT:

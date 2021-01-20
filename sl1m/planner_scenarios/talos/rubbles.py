@@ -1,9 +1,9 @@
 import numpy as np
 print("Plan guide trajectory ...")
-from . import lp_rubbles_path as tp
+from sl1m.planner_scenarios.talos import lp_rubbles_path as tp
 #import lp_ramp_path as tp
 print("Guide planned.")
-from tools.surfaces_from_path import getSurfacesFromGuideContinuous,getSurfacesFromGuide
+from sl1m.rbprm.surfaces_from_planning import getSurfacesFromGuide, getSurfacesFromGuideContinuous
 from sl1m.constants_and_tools import *
 
 from numpy import array, asmatrix, matrix, zeros, ones

@@ -64,7 +64,8 @@ def getAllSurfacesDict (afftool) :
 
 def getSurfacesFromGuideContinuous(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useIntersection= False, pathId=None):
     if viewer :
-        from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        # from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        from hpp.corbaserver.rbprm.tools.display_tools import displaySurfaceFromPoints 
 
     window_size = 0.5 # smaller step at which we check the colliding surfaces
     if pathId == None:
@@ -131,7 +132,8 @@ def getSurfacesFromGuideContinuous(rbprmBuilder,ps,afftool,viewer = None,step = 
 
 def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useIntersection = False, pathId = None):
     if viewer :
-        from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        # from tools.display_tools import displaySurfaceFromPoints  # tool from hpp-rbprm
+        from hpp.corbaserver.rbprm.tools.display_tools import displaySurfaceFromPoints
 
     if pathId == None:
         pathId = ps.numberPaths() -1

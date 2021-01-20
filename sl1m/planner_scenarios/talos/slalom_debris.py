@@ -184,7 +184,7 @@ def solve():
     success = False
     maxIt = 50
     it = 0
-    defaultStep = 1.
+    defaultStep = 0.8
     step = defaultStep
     variation = 0.2
     while not success and it < maxIt:
@@ -212,11 +212,11 @@ if __name__ == '__main__':
 
     s_p0 = tp.ps.getInitialConfig()[0:3]; init = footPosFromCOM(s_p0)
     pb = gen_pb(init, s_p0,R,surfaces)
-    # res_L1 = solveL1(pb, surfaces, draw_scene, PLOT, CPP, SOLVER, OPT)
-    # print res_L1
+    res_L1 = solveL1(pb, surfaces, draw_scene, PLOT, CPP, SOLVER, OPT)
+    print (res_L1)
 
-    res_MI = solveMIP(pb, surfaces, draw_scene, PLOT, CPP)
-    print (res_MI)
+    # res_MI = solveMIP(pb, surfaces, draw_scene, PLOT, CPP)
+    # print (res_MI)
 
     # pb, coms, footpos, allfeetpos, res = solveL1(pb, surfaces, draw_scene)
 

@@ -161,7 +161,7 @@ if GLPK_OK:
         lp.obj[:] = q.tolist()
         lp.simplex()
         t2 = clock()
-        print (lp.obj.value)
+        # print (lp.obj.value)
         return ResultData(array([c.primal for c in lp.cols]), lp.status, lp.status == "opt", lp.obj.value, timMs(t1, t2))
 
 if GUROBI_OK:
@@ -210,7 +210,7 @@ if GUROBI_OK:
         t2 = clock()
         try:
             res = [el.x for el in cVars]
-            print (model.ObjVal)
+            # print (model.ObjVal)
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, timMs(t1, t2))
         except:
             return ResultData(None,  model.Status, False, 0., timMs(t1, t2))
@@ -252,26 +252,26 @@ if GUROBI_OK:
                 model.addConstr(expr, grb.GRB.LESS_EQUAL, b[i])
 
 
-        # slackIndices = [i for i,el in enumerate (c) if el > 0]
+        slackIndices = [i for i,el in enumerate (c) if el > 0]
 
-        # # set objective
-        # variables = []
-        # previousL = 0
-        # obj = 0
-        # for i, el in enumerate(slackIndices):
-        #     if i != 0 and el - previousL > 2.:
-        #         assert len(variables) > 0
-        #         expr = grb.LinExpr(ones(len(variables))/(len(variables)-1), variables)
-        #         # expr = grb.LinExpr(ones(len(variables)), variables)
-        #         obj += expr
-        #         variables = [x[el]]
-        #     elif el!=0:
-        #         variables += [x[el]]
-        #     previousL = el
-        # if len(variables) > 1:
-        #     expr = grb.LinExpr(ones(len(variables))/(len(variables)-1), variables)
-        #     # expr = grb.LinExpr(ones(len(variables)), variables)
-        #     obj += expr
+        # set objective
+        variables = []
+        previousL = 0
+        obj = 0
+        for i, el in enumerate(slackIndices):
+            if i != 0 and el - previousL > 2.:
+                assert len(variables) > 0
+                # expr = grb.LinExpr(ones(len(variables))/(len(variables)-1), variables)
+                expr = grb.LinExpr(ones(len(variables)), variables)
+                obj += expr
+                variables = [x[el]]
+            elif el!=0:
+                variables += [x[el]]
+            previousL = el
+        if len(variables) > 1:
+            # expr = grb.LinExpr(ones(len(variables))/(len(variables)-1), variables)
+            expr = grb.LinExpr(ones(len(variables)), variables)
+            obj += expr
 
         model.setObjective(obj, grb.GRB.MINIMIZE)
         # model.modelSense = grb.GRB.MINIMIZE
@@ -281,7 +281,7 @@ if GUROBI_OK:
         t2 = clock()
         try:
             res = [el.x for el in cVars]
-            print (model.ObjVal)
+            # print (model.ObjVal)
             return ResultData(res, model.Status, model.Status == grb.GRB.OPTIMAL, model.ObjVal, timMs(t1, t2))
         except:
             return ResultData(None,  model.Status, False, 0., timMs(t1, t2))
