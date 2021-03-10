@@ -9,7 +9,7 @@ from sl1m.problem_definition import *
 
 DEFAULT_NUM_VARS = 4
 # SLACK_SCALE = 1.
-THRESHOLD = 0.005
+THRESHOLD = 0.0001
 
 #extra variables when multiple surface: a0, variable for inequality, a1 slack for equality constraint, then a2 = |a1|
 #so vars are x, y, z, zcom, a0, a1
@@ -157,16 +157,17 @@ def MovingFootCOMConstraint(pb, phaseDataT, A, b, previousStartCol, startCol, en
         return MovingFootCOMConstraintVarPhase (phaseDataT, A, b, previousStartCol, startCol, endCol, startRow)
 
 
-def FixedFootRelativeDistanceConstraintInitPhase(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
+def FixedFootRelativeDistanceConstraintInitPhase(pb, phaseDataT, A, b, startCol, endCol, startRow):
     fixed = phaseDataT["fixed"]
     K, k = phaseDataT["relativeK"][0]
-    footMatrix = currentFootExpressionMatrix(phaseDataT, startCol, endCol)
+    # footMatrix = currentFootExpressionMatrix(phaseDataT, startCol, endCol)
     pos   = pb["p0"][fixed]
-    idRow = K.shape[0]
-    offFoot = footMatrix.shape[1]
-    A[:idRow, startCol:startCol+offFoot] = K.dot(footMatrix)
-    b[:idRow                 ] = k + K.dot(pos)
-    return idRow + startRow
+    idRow = startRow + K.shape[0]
+    # offFoot = footMatrix.shape[1]
+    offFoot = footExpressionMatrix.shape[1]
+    A[startRow:idRow, startCol:startCol+offFoot] = K.dot(footExpressionMatrix)
+    b[startRow:idRow                 ] = k + K.dot(pos)
+    return idRow
 
 def FixedFootRelativeDistanceConstraintVarPhase(pb, phaseDataT, A, b, previousStartCol, startCol, endCol, startRow):
     K, k = phaseDataT["relativeK"][0]
@@ -180,7 +181,7 @@ def FixedFootRelativeDistanceConstraintVarPhase(pb, phaseDataT, A, b, previousSt
 
 def FixedFootConstraintRelativeDistance(pb, phaseDataT, A, b, previousCol, startCol, endCol, startRow, first):
     if first:
-        if True:
+        if pb["p0"] is None:
             K, k = phaseDataT["relativeK"][0] #0 constraints
             return startRow + K.shape[0]
         else:
@@ -280,7 +281,7 @@ def slackSelectionMatrix(pb):
         nslacks = phaseVars - DEFAULT_NUM_VARS
         startIdx = cIdx + DEFAULT_NUM_VARS
         for i in range (0,nslacks,NUM_SLACK_PER_SURFACE):
-            c[startIdx + i] = 1
+            c[startIdx + i] = 1     # slack variables
         cIdx += phaseVars
     assert cIdx == nvars
     return c
@@ -324,13 +325,13 @@ def genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res):
     all_indexes = [[el for el in range(lens)]  for lens in [len(surfs) for surfs in wrongsurfaces]]
     wrong_combs = [el for el in itertools.product(*wrongsurfaces_indices)]
 
-    # TEMP FIX TO MAKE SMALL COMB
-    if len(all_indexes) > 80:
-            new_comb_indices = []
-            for i,a in enumerate(wrongsurfaces_indices):
-                new_comb_indices += [a[:len(a)/3+1]]
-                wrong_combs = [el for el in itertools.product(*new_comb_indices)]
-                all_indexes = [[el for el in range(lens)]  for lens in [len(surfs) for surfs in wrong_combs]]
+    # # # TEMP FIX TO MAKE SMALL COMB
+    # if len(all_indexes) > 80:
+    #         new_comb_indices = []
+    #         for i,a in enumerate(wrongsurfaces_indices):
+    #             new_comb_indices += [a[:len(a)/3+1]]
+    #             wrong_combs = [el for el in itertools.product(*new_comb_indices)]
+    #             all_indexes = [[el for el in range(lens)]  for lens in [len(surfs) for surfs in wrong_combs]]
 
     combs = [el for el in itertools.product(*all_indexes)]
     for j, comb in enumerate(combs):
@@ -347,7 +348,7 @@ def generateAllFixedScenariosWithFixedSparsity(pb, res):
     for el in all_len:
         comb *= el
     res = []
-    if comb >2000:
+    if comb >5000:
         # print("problem probably too big ", comb)
         return None
     else:
@@ -466,17 +467,17 @@ def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = 
         ax = fig.add_subplot(111, projection="3d")
     ax.grid(False)
 
-    ax.set_autoscale_on(False)
-    ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
+    # ax.set_autoscale_on(False)
+    # ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
 
-    #~ plotPoints(ax, coms, color = "b")
+    # plotPoints(ax, coms, color = "b")
     plotPoints(ax, footpos[RF], color = "r")
     plotPoints(ax, footpos[LF], color = "g")
 
     cx = [c[0] for c in coms]
     cy = [c[1] for c in coms]
     cz = [c[2] for c in coms]
-    #~ ax.plot(cx, cy, cz)
+    # ax.plot(cx, cy, cz)
     px = [c[0] for c in allfeetpos]
     py = [c[1] for c in allfeetpos]
     pz = [c[2] for c in allfeetpos]

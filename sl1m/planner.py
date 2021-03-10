@@ -170,7 +170,7 @@ def plotQPRes(pb, res, linewidth=2, ax = None, show = True):
         fig = plt.figure()
         ax = fig.add_subplot(111, projection="3d")
     ax.grid(False)
-    ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
+    # ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
     
     plotPoints(ax, coms, color = "b")
     plotPoints(ax, footpos[RF], color = "r")

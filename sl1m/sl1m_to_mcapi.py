@@ -22,6 +22,7 @@ larm = 'arm_left_1_joint'
 lhand = 'arm_left_7_joint'
 
 limbs_names = [rLegId,lLegId]#[rLegId, lLegId]#[rArmId, rLegId, lArmId, lLegId]  # List of effector used to create contact
+# limbs_names = [lLegId,rLegId]
 dict_limb_joint = {rLegId: rfoot, lLegId: lfoot}#, rArmId: rhand, lArmId: lhand}
 rLegOffset = [0., 0., 0.0]
 lLegOffset = [0., 0., 0.0]
@@ -82,6 +83,7 @@ def placement_from_sl1m(ee_name, pos, phase_data):
     n = normal_from_ineq(phase_data["S"][0])
     foot_ori = rotationFromNormal(n)
     root_yaw_ori = phase_data["rootOrientation"]
+    print (root_yaw_ori)
     placement.rotation = np.dot(foot_ori,root_yaw_ori)
     # placement.roation = np.array([[1,0,0],[0,1,0],[0,0,1]])
     print("new contact placement : ", placement)
@@ -117,8 +119,8 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init, q_end, z_offset = 0.):
     # previous_eff_placements = allfeetpos[0]
     # if len(previous_eff_placements) != num_effectors:
     #     raise NotImplementedError("A phase in the output of SL1M do not have all the effectors in contact.")
-    off = 2#2
-    for pid, eff_placements in enumerate(allfeetpos[off:-1]):
+    off = 2
+    for pid, eff_placements in enumerate(allfeetpos[off:]):
         print("Loop allfeetpos, id = ", pid)
         # if len(eff_placements) != num_effectors:
         #     raise NotImplementedError("A phase in the output of SL1M do not have all the effectors in contact.")
@@ -131,7 +133,7 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init, q_end, z_offset = 0.):
         pos = eff_placements#[(pid)%2]
         pos[2]+=z_offset
         ee_name = dict_limb_joint[limbs_names[(pid)%2]]
-        phase_data = pb["phaseData"][pid+off-1]
+        phase_data = pb["phaseData"][pid]
         placement = placement_from_sl1m(ee_name, pos, phase_data)
         cs.moveEffectorToPlacement(ee_name, placement)
         # if not switch:
@@ -150,16 +152,16 @@ def build_cs_from_sl1m_mip(pb, allfeetpos, fb, q_init, q_end, z_offset = 0.):
         """
         # previous_eff_placements = eff_placements
 
-    # #final
-    # # pos = eff_placements[(pid+1)%2]
-    # if pid%2 == 1: # right
-    #     pos = pos + np.array([0,0.085*2,0])
-    # else : # left
-    #     pos = pos - np.array([0,0.085*2,0])
-    # ee_name = dict_limb_joint[limbs_names[(pid+1)%2]]
-    # phase_data = pb["phaseData"][pid] # +1 because the for loop start at id = 1
-    # placement = placement_from_sl1m(ee_name, pos, phase_data)
-    # cs.moveEffectorToPlacement(ee_name, placement)
+    #final
+    # pos = eff_placements[(pid+1)%2]
+    if limbs_names[pid%2] == lLegId: 
+        pos = pos - np.array([0,0.085*2,0])
+    else : 
+        pos = pos + np.array([0,0.085*2,0])
+    ee_name = dict_limb_joint[limbs_names[(pid+1)%2]]
+    phase_data = pb["phaseData"][pid] # +1 because the for loop start at id = 1
+    placement = placement_from_sl1m(ee_name, pos, phase_data)
+    cs.moveEffectorToPlacement(ee_name, placement)
 
     p_final = cs.contactPhases[-1]
     p_final.q_end = np.array(q_end)

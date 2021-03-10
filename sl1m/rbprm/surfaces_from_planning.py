@@ -32,8 +32,8 @@ def listToArray (seqs):
 def getRotationsFromConfigs(configs):
     R = []
     for config in configs:
-        q_rot = [0,0,0,1]
-        # q_rot = config[3:7]
+        # q_rot = [0,0,0,1]
+        q_rot = config[3:7]
         R.append(XYZQUATToSE3([0,0,0]+q_rot).rotation)
     return R
 
@@ -153,7 +153,7 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
     # suppose that we start with the left leg
     seqs = []
     for i, q in enumerate(configs):
-        q[3:7]=[0,0,0,1]
+        # q[3:7]=[0,0,0,1]
         seq = []
         contacts = getContactsIntersections (rbprmBuilder,i,q)
         contact_names = getContactsNames (rbprmBuilder,i,q)
@@ -163,10 +163,10 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
             if contact != []:
                 if viewer:
                     displaySurfaceFromPoints(viewer,contact,colors[i%2])
-                if useIntersection and area(contact) > MAX_SURFACE:
+                if useIntersection and area(contact) > 0.001:
                     seq.append(contact)
-                else:
-                    seq.append(surfaces_dict[contact_names[j]][0])
+                # else:
+                #     seq.append(surfaces_dict[contact_names[j]][0])
         seqs.append(seq)
 
     # remove duplicates
@@ -174,6 +174,7 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
 
     seqs = listToArray(seqs) # change the format from list to array
     R = getRotationsFromConfigs(configs)
+
     return R,seqs
 
 
@@ -182,12 +183,12 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,viewer = None,step = 1.,useInte
 def getSurfacesAll(ps,afftool,step_num):
     all_surfaces = sorted(getAllSurfaces(afftool))
     phase = [surf[0] for surf in all_surfaces]
-    init = ps.getInitialConfig()
+    # init = ps.getInitialConfig()
 
     seqs = []; R =[]
     for i in range(step_num):
         seqs.append(phase)
-        R.append(XYZQUATToSE3([0,0,0]+init[3:7]).rotation)
+        R.append(XYZQUATToSE3([0,0,0,0,0,0,1]).rotation)
 
     if (len(seqs[0])!= 1):
         seqs[0]=[seqs[0][0]]; seqs[-1]=[seqs[-1][-1]]
