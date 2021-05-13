@@ -33,6 +33,8 @@ def convert_surface_to_inequality(s):
     #TODO does normal orientation matter ?
     #it will for collisions
     n = cross(s[:,1] - s[:,0], s[:,2] - s[:,0])
+    if norm(n) < 1e-6:
+        n = cross(s[:,len(s[0])//3] - s[:,0], s[:,len(s[0])//2] - s[:,0])
     if n[2] <= 0.:
         for i in range(3):
             n[i] = -n[i]

@@ -342,7 +342,7 @@ def generateAllFixedScenariosWithFixedSparsity(pb, res):
     for el in all_len:
         comb *= el  
     res = []
-    if comb >1000:
+    if comb >10000:
         print("problem probably too big ", comb)
     else:
         genCombinatorialRec(pb, indices, wrongsurfaces, wrongsurfaces_indices, res)
@@ -461,24 +461,24 @@ def plotQPRes(pb, res, linewidth=2, ax = None, plot_constraints = False, show = 
         ax = fig.add_subplot(111, projection="3d")
     ax.grid(False)
         
-    ax.set_autoscale_on(False)
+    # ax.set_autoscale_on(False)
     ax.view_init(elev=8.776933438381377, azim=-99.32358055821186)
     
-    #~ plotPoints(ax, coms, color = "b")
+    plotPoints(ax, coms, color = "b")
     plotPoints(ax, footpos[RF], color = "r")
     plotPoints(ax, footpos[LF], color = "g")
     
     cx = [c[0] for c in coms]
     cy = [c[1] for c in coms]
     cz = [c[2] for c in coms]
-    #~ ax.plot(cx, cy, cz)
+    ax.plot(cx, cy, cz)
     px = [c[0] for c in allfeetpos]
     py = [c[1] for c in allfeetpos]
     pz = [c[2] for c in allfeetpos]
     ax.plot(px, py, pz)
         
     if show:
-        plt.ion()
+        #plt.ion()
         plt.show()
        
     

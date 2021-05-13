@@ -4,8 +4,8 @@ from sl1m.rbprm.narrow_convex_hull import getSurfaceExtremumPoints, removeDuplic
 from pinocchio import XYZQUATToSE3
 from sl1m.problem_definition import LF, RF
 
-MAX_SURFACE = 0.09 # if a contact surface is greater than this value, the intersection is used instead of the whole surface
-
+MAX_SURFACE = 0.09 # if a contact surface is greater than this value, the intersection is used or else, the whole surface is used
+MIN_SURFACE = 0.01 # if a contact surface is too small discard the contact
 
 def listToArray (seqs):
     nseq = []; nseqs= []
@@ -154,6 +154,8 @@ def getSurfacesFromGuide(rbprmBuilder,ps,afftool,pathId,viewer = None,step = 0.6
                 # print (area(contact))
                 if useIntersection and area(contact) > MAX_SURFACE:
                     seq.append(contact) 
+                elif useIntersection and area(contact) < MIN_SURFACE: 
+                    pass
                 else:
                     seq.append(surface_dict[contact_names[j]][0])
                 if viewer:

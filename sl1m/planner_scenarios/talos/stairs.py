@@ -133,7 +133,7 @@ def plotSurface (points, ax, plt,color_id = -1):
     colors = ['r','g','b','m','y','c']
     if color_id == -1: ax.plot(xs,ys,zs)
     else: ax.plot(xs,ys,zs,colors[color_id])
-    plt.ion()
+    #plt.ion()
     plt.draw()
         
 def draw_scene(surfaces,ax = None):
